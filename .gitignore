@@ -1,3 +1,14 @@
-*.egg-info/*
-dist/
+.DS_Store
+.idea
+*.log
+tmp/
+
+*.egg-info
+dist
 .python-version
+*.pyc
+
+nosetests.xml
+coverage/
+coverage.xml
+.coverage

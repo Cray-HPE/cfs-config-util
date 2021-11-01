@@ -1,0 +1,4 @@
+kubernetes
+PyYAML < 6.0.0
+requests < 3.0
+requests-oauthlib

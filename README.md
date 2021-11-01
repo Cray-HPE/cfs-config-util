@@ -1,4 +1,5 @@
-# SAT CFS modification utility
+# CFS Configuration Utility
 
-The SAT install utility is a tool for updating CFS during the install/downgrade
-flow.
+The CFS Configuration Utility contains a Python library and executable packaged in a
+container image which automate the process of modifying CFS configurations. This is used
+in the install flow to simplify post-install NCN personalization.
