@@ -1,7 +1,7 @@
 """
 OAuth2 authentication support.
 
-(C) Copyright 2019-2021 Hewlett Packard Enterprise Development LP. All Rights Reserved.
+Copyright 2021 Hewlett Packard Enterprise Development LP
 """
 
 import base64
@@ -15,35 +15,9 @@ import requests
 from requests_oauthlib import OAuth2Session
 
 from cfs_config_util.apiclient import load_kube_api
+from cfs_config_util.cached_property import cached_property
 
 LOGGER = logging.getLogger(__name__)
-
-
-class cached_property:
-    """A decorator to create a read-only property that caches itself upon first access."""
-
-    def __init__(self, func):
-        """Create a cached_property that implements the descriptor protocol.
-
-        Args:
-            func: The function to decorate.
-        """
-        self.func = func
-
-    def __get__(self, obj, cls):
-        """Gets and caches the result of `self.func`.
-
-        The result is cached in an attribute of the same name as the function
-        but with a leading underscore.
-        """
-
-        if obj is None:
-            return self
-
-        cached_attr_name = '_{}'.format(self.func.__name__)
-        if not hasattr(obj, cached_attr_name):
-            setattr(obj, cached_attr_name, self.func(obj))
-        return getattr(obj, cached_attr_name)
 
 
 class AdminSession:
