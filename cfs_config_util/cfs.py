@@ -1,22 +1,24 @@
 """
 Basic client library for CFS.
 
-(C) Copyright 2021 Hewlett Packard Enterprise Development LP. All Rights Reserved.
+Copyright 2021 Hewlett Packard Enterprise Development LP
 """
 
 from collections import Counter
+from contextlib import contextmanager
 from copy import deepcopy
 import json
 import logging
-import os
-import subprocess
-from urllib.parse import ParseResult, urlunparse
 
 from cfs_config_util.apiclient import APIError, CFSClient, HSMClient
 from cfs_config_util.session import AdminSession
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+class CFSConfigurationError(Exception):
+    """Represents an error that occurred while modifying CFS."""
 
 
 class CFSConfiguration:
@@ -31,13 +33,124 @@ class CFSConfiguration:
         try:
             self.config = self._cfs_client.get('v2', 'configurations', name).json()
         except APIError as err:
-            LOGGER.error('Could not access CFS: %s', err)
-            raise SystemExit(1)
+            raise CFSConfigurationError(f'Could not retrieve configuration "{name}" from CFS: {err}')
         except json.JSONDecodeError as err:
-            LOGGER.error('Invalid JSON response received from CFS: %s', err)
-            raise SystemExit(1)
+            raise CFSConfigurationError(f'Invalid JSON response received from CFS: {err}')
 
-    def update_layer(self, layer_name, commit_hash, clone_url, playbook):
+    @classmethod
+    def get_configurations_for_components(cls, **kwargs):
+        """Configurations for components matching the given params.
+
+        Parameters passed into this function should be valid HSM component
+        attributes.
+
+        Args:
+            kwargs: parameters which are passed to HSM to filter queried components.
+
+        Yields:
+            CFSConfiguration: the relevant configs marked as desired for the
+                given components.
+
+        Raises:
+            CFSConfigurationError: if there is an error accessing HSM or CFS.
+        """
+        session = AdminSession.get_session()
+        hsm_client = HSMClient(session)
+        cfs_client = CFSClient(session)
+
+        try:
+            target_xnames = hsm_client.get_component_xnames(params=kwargs or None)
+        except APIError as err:
+            raise CFSConfigurationError(f'Could not retrieve xnames from HSM matching params {kwargs}: {err}')
+
+        LOGGER.info('Querying CFS configurations for the following NCNs: %s',
+                    ', '.join(target_xnames))
+
+        desired_config_names = set()
+        for xname in target_xnames:
+            try:
+                desired_config_name = cfs_client.get('v2', 'components', xname) \
+                                                .json() \
+                                                .get('desiredConfig')
+                if desired_config_name:
+                    LOGGER.info('Found configuration "%s" for component %s',
+                                desired_config_name, xname)
+                    desired_config_names.add(desired_config_name)
+            except APIError as err:
+                LOGGER.warning('Could not retrieve CFS configuration for component %s: %s',
+                               xname, err)
+            except json.JSONDecodeError as err:
+                LOGGER.warning('CFS returned invalid JSON for component %s: %s',
+                               xname, err)
+
+        for config_name in desired_config_names:
+            if config_name is not None:
+                yield cls(config_name)
+
+    @property
+    def layers(self):
+        """[dict]: The layers of this configuration"""
+        return self.config.get('layers')
+
+    @contextmanager
+    def updatable_layers(self):
+        """Get a list of layers which can be modified and updated after use.
+
+        This function returns a context manager which, when bound with a with/as
+        clause, is a list of layers as stored in CFS. This list can be manipulated
+        as desired, and the updated list will then be sent to CFS after the
+        context manager exits.
+
+        Returns:
+            context manager which yields a list of layers.
+
+        Raises:
+            CFSConfigurationError: if CFS cannot be updated.
+        """
+        new_layers = deepcopy(self.config.get('layers'))
+
+        yield new_layers
+
+        new_config = {'layers': new_layers}
+        try:
+            self._cfs_client.put('v2', 'configurations', self.name, json=new_config)
+        except APIError as err:
+            raise CFSConfigurationError(f'Could not update CFS configuration "{self.name}": {err}')
+
+        self.config.update(new_config)
+        LOGGER.info('Successfully updated layers in configuration "%s"', self.name)
+
+    def remove_layer(self, layer_name):
+        """Removes a layer from the configuration.
+
+        Args:
+            layer_name (str): name of the layer to remove
+
+        Returns:
+            None.
+
+        Raises:
+            CFSConfigurationError: if CFS cannot be updated or if there are
+                duplicate layers with the given name.
+        """
+        self.check_duplicate_layer_names(layer_name)
+
+        LOGGER.info('Removing layer "%s" from configuration "%s"',
+                    layer_name, self.name)
+        with self.updatable_layers() as new_layers:
+            removal_index = None
+            for index, layer in enumerate(new_layers):
+                if layer.get('name') == layer_name:
+                    removal_index = index
+                    break
+
+            if removal_index is not None:
+                del new_layers[removal_index]
+            else:
+                LOGGER.warning('Layer "%s" not found in configuration "%s"; continuing.',
+                               layer_name, self.name)
+
+    def ensure_layer(self, layer_name, commit_hash, clone_url, playbook):
         """Ensures a layer exists with the given parameters.
 
         Args:
@@ -50,9 +163,10 @@ class CFSConfiguration:
         Returns: None.
 
         Raises:
-            APIError: if there is an issue querying CFS.
+            CFSConfigurationError: if CFS cannot be updated or if there are
+                duplicate layers with the given name.
         """
-        layers = deepcopy(self.config.get('layers'))
+        self.check_duplicate_layer_names(layer_name)
 
         new_layer_base = {
             'commit': commit_hash,
@@ -60,115 +174,41 @@ class CFSConfiguration:
             'playbook': playbook,
         }
 
-        # TODO: Exiting here may not be the best general solution. See
-        # CRAYSAT-1221.
-        duplicate_layers = set(self.find_duplicate_layers(layers))
-        if layer_name in duplicate_layers:
-            LOGGER.error('Duplicate layers with name "%s" found in configuration "%s"; exiting.',
-                         layer_name, self.name)
-            raise SystemExit(1)
+        with self.updatable_layers() as new_layers:
+            for layer in new_layers:
+                if layer['name'] == layer_name:
+                    LOGGER.info('Found existing layer with name "%s" in configuration "%s"; updating.',
+                                layer_name, self.name)
+                    for new_layer_key, new_value in new_layer_base.items():
+                        if layer[new_layer_key] != new_value:
+                            LOGGER.info('Key "%s" in layer "%s" updated from "%s" to "%s"',
+                                        new_layer_key, layer_name,
+                                        layer[new_layer_key], new_value)
+                    layer.update(new_layer_base)
+                    break
+            else:
+                new_layer = dict(name=layer_name, **new_layer_base)
+                LOGGER.info('Layer with name "%s" was not found in configuration "%s". '
+                            'Appending layer with the following contents: %s',
+                            layer_name, self.name, new_layer)
+                new_layers.append(new_layer)
 
-        for layer in layers:
-            if layer['name'] == layer_name:
-                LOGGER.info('Found existing layer with name "%s" in configuration "%s"; updating.',
-                            layer_name, self.name)
-                for new_layer_key, new_value in new_layer_base.items():
-                    if layer[new_layer_key] != new_value:
-                        LOGGER.info('Key "%s" in layer "%s" updated from "%s" to "%s"',
-                                    new_layer_key, layer_name,
-                                    layer[new_layer_key], new_value)
-                layer.update(new_layer_base)
-                break
-        else:
-            new_layer = dict(name=layer_name, **new_layer_base)
-            LOGGER.info('Layer with name "%s" was not found in configuration "%s". '
-                        'Appending layer with the following contents: %s',
-                        layer_name, self.name, new_layer)
-            layers.append(new_layer)
-
-        new_config = {'layers': layers}
-        self._cfs_client.put('v2', 'configurations', self.name, json=new_config)
-        self.config.update(new_config)
-        LOGGER.info('Successfully updated layer "%s" in configuration "%s"',
-                    layer_name, self.name)
-
-    @staticmethod
-    def find_duplicate_layers(layers):
-        """Search for duplicate layers in a list of layers.
+    def check_duplicate_layer_names(self, layer_name):
+        """Exits the program if the layer name is not unique.
 
         Args:
-            layers ([dict]): the layers in the configuration returned from CFS.
+            layer_name (str): the name of the layer to check
 
         Returns:
-            set: names which refer to more than one layer in the configuration.
+            None
+
+        Raises:
+            CFSConfigurationError: if there are multiple layers with name layer_name.
         """
-        counts_by_name = Counter([layer.get('name') for layer in layers])
-        return set(layer_name for layer_name, count in counts_by_name.items()
-                   if count > 1)
-
-
-def get_remote_refs(vcs_username, vcs_host, vcs_path):
-    """Get the remote refs for a remote repo.
-
-    Args:
-        vcs_username (str): username to authenticate to git server
-        vcs_host (str): the hostname of the git server
-        vcs_path (str): the path to the repository on the server
-
-    Returns:
-        dict: mapping of remote refs to their corresponding commit hashes
-    """
-
-    user_netloc = f'{vcs_username}@{vcs_host}'
-    url_components = ParseResult(scheme='https', netloc=user_netloc, path=vcs_path,
-                                 params='', query='', fragment='')
-    vcs_full_url = urlunparse(url_components)
-
-    # Get the password directly from k8s to avoid leaking it via the /proc
-    # filesystem.
-    env = dict(**os.environ, GIT_ASKPASS='vcs-creds-helper')
-    proc = subprocess.run(['git', 'ls-remote', vcs_full_url],
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                          env=env, check=True)
-
-    # Each line in the output from `git ls-remote` has the form
-    # "<commit_hash>\t<ref_name>", and we want the returned dictionary to map
-    # the other way, i.e. from ref names to commit hashes. Thus when we split
-    # each line on '\t', we should reverse the order of the resulting pair
-    # before inserting it into the dictionary (hence the `reversed` in the
-    # following comprehension.)
-    return dict(
-        tuple(reversed(line.split('\t')))
-        for line in proc.stdout.decode('utf-8').split('\n')
-        if line
-    )
-
-
-def get_cfs_configurations():
-    """Get a list of CFS configurations for the manager NCNs.
-
-    Returns:
-        set[str]: names of the CFS configurations in use on the
-            manager NCNs.
-    """
-    session = AdminSession.get_session()
-    hsm_client = HSMClient(session)
-    cfs_client = CFSClient(session)
-
-    try:
-        mgr_xnames = hsm_client.get_component_xnames(params={'Role': 'Management', 'Subrole': 'Master'})
-    except APIError as err:
-        LOGGER.error('Could not retrieve manager NCN xnames from HSM: %s', err)
-        raise SystemExit(1)
-
-    LOGGER.info('Querying CFS configurations for the following NCNs: %s',
-                ', '.join(mgr_xnames))
-
-    try:
-        desired_configs = set(cfs_client.get('v2', 'components', ncn).json().get('desiredConfig') for ncn in mgr_xnames)
-        LOGGER.info('Found the following configurations for NCNs: %s',
-                    ', '.join(desired_configs))
-        return desired_configs
-    except APIError as err:
-        LOGGER.error('Could not retrieve CFS configurations for manager NCNs: %s', err)
-        raise SystemExit(1)
+        # TODO: Exiting here may not be the best general solution. See
+        # CRAYSAT-1221.
+        counts_by_name = Counter([layer.get('name') for layer in self.layers])
+        layers_with_name = counts_by_name.get(layer_name, 0)
+        if layers_with_name > 1:
+            raise CFSConfigurationError(f'{layers_with_name} found with name "{layer_name}"'
+                                        ' in configuration "{self.name}"')

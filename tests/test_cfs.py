@@ -8,7 +8,7 @@ from copy import deepcopy
 import unittest
 from unittest.mock import MagicMock, patch
 
-from cfs_config_util.cfs import CFSConfiguration
+from cfs_config_util.cfs import CFSConfiguration, CFSConfigurationError
 
 
 class TestCFSConfiguration(unittest.TestCase):
@@ -54,11 +54,11 @@ class TestCFSConfiguration(unittest.TestCase):
     def test_add_new_layer(self):
         """Test adding a new layer to a CFSConfiguration"""
         cfs_config = CFSConfiguration('config')
-        cfg_layers = len(cfs_config.config.get('layers'))
-        cfs_config.update_layer('some-new-config', 'fedcba987654321',
+        cfg_layers = len(cfs_config.layers)
+        cfs_config.ensure_layer('some-new-config', 'fedcba987654321',
                                 'https://api-gw-service-nmn.local/vcs/cray/some-new-configuration.git',
                                 'some-new-config.yml')
-        self.assertEqual(len(cfs_config.config.get('layers')), cfg_layers + 1)
+        self.assertEqual(len(cfs_config.layers), cfg_layers + 1)
         self.mock_cfs_client.return_value.put.assert_called_once()
 
     def test_update_existing_layer(self):
@@ -68,9 +68,9 @@ class TestCFSConfiguration(unittest.TestCase):
         new_playbook = 'some-updated-config.yml'
 
         cfs_config = CFSConfiguration('config')
-        cfg_layers = len(cfs_config.config.get('layers'))
-        cfs_config.update_layer('some-config', new_commit_hash, new_url, new_playbook)
-        self.assertEqual(len(cfs_config.config.get('layers')), cfg_layers)
+        cfg_layers = len(cfs_config.layers)
+        cfs_config.ensure_layer('some-config', new_commit_hash, new_url, new_playbook)
+        self.assertEqual(len(cfs_config.layers), cfg_layers)
         self.mock_cfs_client.return_value.put.assert_called_once()
 
         for key, updated_value in [('commit', new_commit_hash),
@@ -78,18 +78,52 @@ class TestCFSConfiguration(unittest.TestCase):
                                    ('playbook', new_playbook)]:
             self.assertEqual(cfs_config.config['layers'][0][key], updated_value)
 
-    def test_detecting_duplicate_layers(self):
-        """Test that layers with duplicate names are detected."""
-        duplicates = list(CFSConfiguration.find_duplicate_layers(self.payload_with_duplicate_names['layers']))
-        self.assertEqual(duplicates, ['some-config'])
+    def test_no_exit_with_no_duplicates(self):
+        """Test that the program does not exit when layer names are unique."""
+        try:
+            CFSConfiguration('config').check_duplicate_layer_names('some-config')
+        except SystemExit:
+            self.fail('program exited but no duplicate layer names were present.')
 
     def test_exit_on_duplicates(self):
         """Test that the program exits when duplicate layer names are detected."""
         self.mock_cfs_client.return_value.get.return_value.json.return_value = self.payload_with_duplicate_names
-        with self.assertRaises(SystemExit):
-            CFSConfiguration('config').update_layer(
-                'some-config',
-                '123456789abcdef',
-                'https://api-gw-service-nmn.local/vcs/cray/some-updated-configuration.git',
-                'sat-ncn.yml'
-            )
+        with self.assertRaises(CFSConfigurationError):
+            CFSConfiguration('config').check_duplicate_layer_names('some-config')
+
+    def test_ensure_layer_checks_for_duplicates(self):
+        """Test that ensure_layer checks for duplicates."""
+        cfs_config = CFSConfiguration('config')
+        with patch('cfs_config_util.cfs.CFSConfiguration.check_duplicate_layer_names') as mock_exit:
+            cfs_config.ensure_layer('some-new-config', 'fedcba987654321',
+                                    'https://api-gw-service-nmn.local/vcs/cray/some-new-configuration.git',
+                                    'some-new-config.yml')
+        mock_exit.assert_called_once()
+
+    def test_ensure_layer_checks_for_duplicates(self):
+        """Test that ensure_layer checks for duplicates."""
+        cfs_config = CFSConfiguration('config')
+        with patch('cfs_config_util.cfs.CFSConfiguration.check_duplicate_layer_names') as mock_exit:
+            cfs_config.remove_layer('some-new-config')
+        mock_exit.assert_called_once()
+
+    def test_remove_layer_removes_layer(self):
+        """Test that remove_layer will remove a layer with the given name."""
+        cfs_config = CFSConfiguration('config')
+        cfs_config.remove_layer('some-config')
+        self.assertEqual(cfs_config.layers, [])
+        self.mock_cfs_client.return_value.put.assert_called_once()
+
+    def test_removing_nonexistent_layer_warns_user(self):
+        """Test that removing a non-existent layer logs a warning message."""
+        cfs_config = CFSConfiguration('config')
+        starting_layers = cfs_config.layers
+        with self.assertLogs(level='WARN'):
+            cfs_config.remove_layer('nonexistent-layer')
+
+    def test_removing_nonexistent_layer_is_noop(self):
+        """Test that removing a non-existent layer does nothing."""
+        cfs_config = CFSConfiguration('config')
+        starting_layers = cfs_config.layers
+        cfs_config.remove_layer('nonexistent-layer')
+        self.assertEqual(cfs_config.layers, starting_layers)

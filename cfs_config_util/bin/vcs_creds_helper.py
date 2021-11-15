@@ -3,7 +3,7 @@
 This program is intended to be called using `GIT_ASKPASS` and prints the
 password to standard output. Use with care.
 
-(C) Copyright 2021 Hewlett Packard Enterprise Development LP. All Rights Reserved.
+Copyright 2021 Hewlett Packard Enterprise Development LP
 """
 
 import base64
