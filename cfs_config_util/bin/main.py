@@ -1,7 +1,7 @@
 """
 Main entrypoint to CFS update utility
 
-Copyright 2021 Hewlett Packard Enterprise Development LP
+Copyright 2021-2022 Hewlett Packard Enterprise Development LP
 """
 
 import argparse
@@ -41,7 +41,6 @@ def main():
     # TODO: These should be configurable options. See CRAYSAT-1220.
     VCS_LOCAL_PATH = '/vcs/cray/sat-config-management.git'
     SAT_PRODUCT_NAME = 'sat'
-    SAT_CFS_LAYER_NAME = 'sat-ncn'
     SAT_PLAYBOOK = 'sat-ncn.yml'
 
-    cfs_activate_version(SAT_PRODUCT_NAME, args.version, SAT_CFS_LAYER_NAME, VCS_LOCAL_PATH, SAT_PLAYBOOK)
+    cfs_activate_version(SAT_PRODUCT_NAME, args.version, VCS_LOCAL_PATH, SAT_PLAYBOOK)

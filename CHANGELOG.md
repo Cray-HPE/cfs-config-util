@@ -1,6 +1,6 @@
 # Changelog
 
-(C) Copyright 2021 Hewlett Packard Enterprise Development LP.
+(C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP.
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.0.0] - 2022-02-11
+
+### Changed
+- Changed how CFS configuration layers are identified by ``cfs_activate_version``
+  and ``cfs_deactivate_version``.  Instead of being identified by name, they are
+  identified by a combination of repository path (from the cloneUrl) and
+  playbook.
+- Removed layer name argument accepted by ``cfs_activate_version`` and
+  ``cfs_deactivate_version``. Layer name is now generated from product and
+  version.
 
 ## [1.0.0] - 2021-10-31
 

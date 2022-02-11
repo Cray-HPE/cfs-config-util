@@ -1,20 +1,23 @@
 """
 Basic client library for CFS.
 
-Copyright 2021 Hewlett Packard Enterprise Development LP
+Copyright 2021-2022 Hewlett Packard Enterprise Development LP
 """
-
-from collections import Counter
-from contextlib import contextmanager
-from copy import deepcopy
+from enum import Enum
 import json
 import logging
+from urllib.parse import urlparse
 
 from cfs_config_util.apiclient import APIError, CFSClient, HSMClient
 from cfs_config_util.session import AdminSession
 
-
 LOGGER = logging.getLogger(__name__)
+
+
+class LayerState(Enum):
+    """Desired state of a layer in a CFSConfiguration."""
+    PRESENT = 'present'
+    ABSENT = 'absent'
 
 
 class CFSConfigurationError(Exception):
@@ -92,66 +95,46 @@ class CFSConfiguration:
         """[dict]: The layers of this configuration"""
         return self.config.get('layers')
 
-    @contextmanager
-    def updatable_layers(self):
-        """Get a list of layers which can be modified and updated after use.
-
-        This function returns a context manager which, when bound with a with/as
-        clause, is a list of layers as stored in CFS. This list can be manipulated
-        as desired, and the updated list will then be sent to CFS after the
-        context manager exits.
-
-        Returns:
-            context manager which yields a list of layers.
-
-        Raises:
-            CFSConfigurationError: if CFS cannot be updated.
-        """
-        new_layers = deepcopy(self.config.get('layers'))
-
-        yield new_layers
-
-        new_config = {'layers': new_layers}
-        try:
-            self._cfs_client.put('v2', 'configurations', self.name, json=new_config)
-        except APIError as err:
-            raise CFSConfigurationError(f'Could not update CFS configuration "{self.name}": {err}')
-
-        self.config.update(new_config)
-        LOGGER.info('Successfully updated layers in configuration "%s"', self.name)
-
-    def remove_layer(self, layer_name):
-        """Removes a layer from the configuration.
+    @staticmethod
+    def layer_matches(layer, repo_path, playbook):
+        """Determine whether the given layer matches the given clone URL and playbook.
 
         Args:
-            layer_name (str): name of the layer to remove
+            layer (dict): the layer data
+            repo_path (str): the repo path to check against
+            playbook (str): the playbook to check against
 
         Returns:
-            None.
+            True if the layer matches, False otherwise.
+        """
+        layer_repo_path = urlparse(layer.get('cloneUrl')).path
+        return layer_repo_path == repo_path and layer.get('playbook') == playbook
+
+    def update_layers(self, layers):
+        """Update the layers of the configuration.
+
+        Args:
+            layers (list of dict): the layers to update the configuration with
+
+        Returns: None
 
         Raises:
-            CFSConfigurationError: if CFS cannot be updated or if there are
-                duplicate layers with the given name.
+            CFSConfigurationError: if the update of the CFS configuration fails
         """
-        self.check_duplicate_layer_names(layer_name)
+        req_payload = {'layers': layers}
+        try:
+            response_json = self._cfs_client.put('v2', 'configurations', self.name, json=req_payload).json()
+        except APIError as err:
+            raise CFSConfigurationError(f'Failed to update CFS configuration "{self.name}": {err}')
+        except ValueError as err:
+            raise CFSConfigurationError(f'Failed to decode JSON response from updating '
+                                        f'CFS configuration "{self.name}": {err}')
 
-        LOGGER.info('Removing layer "%s" from configuration "%s"',
-                    layer_name, self.name)
-        with self.updatable_layers() as new_layers:
-            removal_index = None
-            for index, layer in enumerate(new_layers):
-                if layer.get('name') == layer_name:
-                    removal_index = index
-                    break
+        self.config.update(response_json)
+        LOGGER.info('Successfully updated layers in configuration "%s"', self.name)
 
-            if removal_index is not None:
-                del new_layers[removal_index]
-            else:
-                LOGGER.warning('Layer "%s" not found in configuration "%s"; continuing.',
-                               layer_name, self.name)
-
-    def ensure_layer(self, layer_name, commit_hash, clone_url, playbook):
-        """Ensures a layer exists with the given parameters.
+    def ensure_layer(self, layer_name, commit_hash, clone_url, playbook, state=LayerState.PRESENT):
+        """Ensure a layer exists or does not exist with the given parameters.
 
         Args:
             layer_name (str): the name of the layer
@@ -159,56 +142,58 @@ class CFSConfiguration:
                 VCS
             clone_url (str): the URL in VCS containing the configuration
             playbook (str): the path to the playbook in the VCS repo
+            state (LayerState): whether to ensure the layer is present or absent
 
         Returns: None.
 
         Raises:
-            CFSConfigurationError: if CFS cannot be updated or if there are
-                duplicate layers with the given name.
+            CFSConfigurationError: if the CFS configuration cannot be updated
         """
-        self.check_duplicate_layer_names(layer_name)
+        action = ('Removing', 'Updating')[state is LayerState.PRESENT]
+        repo_path = urlparse(clone_url).path
+        layer_description = f'layer with repo path {repo_path} and playbook {playbook}'
 
-        new_layer_base = {
+        new_layer = {
+            'name': layer_name,
             'commit': commit_hash,
             'cloneUrl': clone_url,
             'playbook': playbook,
         }
 
-        with self.updatable_layers() as new_layers:
-            for layer in new_layers:
-                if layer['name'] == layer_name:
-                    LOGGER.info('Found existing layer with name "%s" in configuration "%s"; updating.',
-                                layer_name, self.name)
-                    for new_layer_key, new_value in new_layer_base.items():
-                        if layer[new_layer_key] != new_value:
-                            LOGGER.info('Key "%s" in layer "%s" updated from "%s" to "%s"',
-                                        new_layer_key, layer_name,
-                                        layer[new_layer_key], new_value)
-                    layer.update(new_layer_base)
-                    break
+        new_layers = []
+        found_match = False
+        made_changes = False
+        for layer in self.layers:
+            if self.layer_matches(layer, repo_path, playbook):
+                found_match = True
+                LOGGER.info('%s existing %s in configuration "%s".',
+                            action, layer_description, self.name)
+                if state is LayerState.ABSENT:
+                    # Skip adding this layer to new_layers
+                    made_changes = True
+                    continue
+
+                # Layer should be present. Check if it differs at all.
+                for new_layer_key, new_value in new_layer.items():
+                    if layer.get(new_layer_key) != new_value:
+                        made_changes = True
+                        LOGGER.info('Key "%s" in %s updated from %s to %s',
+                                    new_layer_key, layer_description,
+                                    layer.get(new_layer_key), new_value)
+                new_layers.append(new_layer)
             else:
-                new_layer = dict(name=layer_name, **new_layer_base)
-                LOGGER.info('Layer with name "%s" was not found in configuration "%s". '
-                            'Appending layer with the following contents: %s',
-                            layer_name, self.name, new_layer)
+                # This layer doesn't match, so leave it untouched
+                new_layers.append(layer)
+
+        if not found_match:
+            LOGGER.info('No %s found in configuration "%s". ', layer_description, self.name)
+            if state is LayerState.PRESENT:
+                LOGGER.info('Adding a %s to the configuration "%s"',
+                            layer_description, self.name)
+                made_changes = True
                 new_layers.append(new_layer)
 
-    def check_duplicate_layer_names(self, layer_name):
-        """Exits the program if the layer name is not unique.
-
-        Args:
-            layer_name (str): the name of the layer to check
-
-        Returns:
-            None
-
-        Raises:
-            CFSConfigurationError: if there are multiple layers with name layer_name.
-        """
-        # TODO: Exiting here may not be the best general solution. See
-        # CRAYSAT-1221.
-        counts_by_name = Counter([layer.get('name') for layer in self.layers])
-        layers_with_name = counts_by_name.get(layer_name, 0)
-        if layers_with_name > 1:
-            raise CFSConfigurationError(f'{layers_with_name} found with name "{layer_name}"'
-                                        ' in configuration "{self.name}"')
+        if made_changes:
+            self.update_layers(new_layers)
+        else:
+            LOGGER.info('No changes to configuration "%s" were necessary.', self.name)
