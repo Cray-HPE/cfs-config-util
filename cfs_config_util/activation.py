@@ -3,6 +3,7 @@ Utility functions for activating or deactivating a version.
 
 Copyright 2021-2022 Hewlett Packard Enterprise Development LP
 """
+import json
 import logging
 import urllib.parse
 
@@ -41,7 +42,7 @@ def ensure_product_layer(product, version, repo_url, playbook, state):
             "https://vcs.local/vcs/cray/sat-config-management.git" or just
             "/vcs/cray/sat-config-management.git")
         playbook (str): path to the playbook in the VCS configuration repo.
-        state (str): Either 'present' or 'absent'.
+        state (LayerState): whether to ensure the layer is present or absent
 
     Returns:
         A tuple of the following items:
@@ -55,8 +56,9 @@ def ensure_product_layer(product, version, repo_url, playbook, state):
 
     # TODO (CRAYSAT-1220): Figure out if we need to be able to query
     # configurations for other types of nodes.
+    hsm_params = {'role': 'Management', 'subrole': 'Master'}
     succeeded, failed = [], []
-    for cfg in CFSConfiguration.get_configurations_for_components(role='Management', subrole='Master'):
+    for cfg in CFSConfiguration.get_configurations_for_components(**hsm_params):
         LOGGER.info('Updating CFS configuration "%s"', cfg.name)
         try:
             cfg.ensure_layer(layer_name, commit_hash, cfg_repo.clone_url, playbook, state=state)
@@ -64,6 +66,21 @@ def ensure_product_layer(product, version, repo_url, playbook, state):
         except CFSConfigurationError as err:
             LOGGER.warning('Could not update CFS configuration "%s": %s', cfg.name, err)
             failed.append(cfg.name)
+
+    if not succeeded and not failed:
+        descriptor = ' and '.join([f'{param} {value}'
+                                   for param, value in hsm_params.items()])
+        LOGGER.warning(f'No CFS configurations found that apply to components with '
+                       f'{descriptor}.')
+        new_layer = {
+            'name': layer_name,
+            'commit': commit_hash,
+            'cloneUrl': cfg_repo.clone_url,
+            'playbook': playbook,
+        }
+        LOGGER.info(f'The following {product} layer should be used in the CFS configuration that '
+                    f'will be applied to NCNs with {descriptor}.\n{json.dumps(new_layer, indent=4)}')
+
     return succeeded, failed
 
 
