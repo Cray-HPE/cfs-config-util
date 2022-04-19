@@ -1,7 +1,7 @@
 // Jenkinsfile for cfs-config-util Python package
 // Copyright 2021 Hewlett Packard Enterprise Development LP
 
-@Library('dst-shared@master') _
+@Library('dst-shared@release/sat-2.3') _
 
 pipeline {
     agent {
