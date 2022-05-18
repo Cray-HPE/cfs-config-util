@@ -1,3 +1,4 @@
+cray-product-catalog >= 1.6.0
 kubernetes
 PyYAML < 6.0.0
 requests < 3.0

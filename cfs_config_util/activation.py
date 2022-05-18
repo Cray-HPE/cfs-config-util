@@ -3,98 +3,98 @@ Utility functions for activating or deactivating a version.
 
 Copyright 2021-2022 Hewlett Packard Enterprise Development LP
 """
-import json
 import logging
-import urllib.parse
 
-from cfs_config_util.vcs import VCSRepo
+from cfs_config_util.apiclient import APIError, HSMClient
 from cfs_config_util.cfs import (
-    CFSConfiguration,
+    CFSClient,
+    CFSConfigurationLayer,
     CFSConfigurationError,
     LayerState
 )
+from cfs_config_util.session import AdminSession
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-def get_local_path(clone_url):
-    """Extract the path from a full URL.
+def ensure_product_layer(product, version, playbook, state,
+                         hsm_query_params, git_commit=None, git_branch=None):
+    """Ensure the product layer is present/absent in CFS configuration(s).
+
+    This queries HSM for components matching the hsm_query_params and then
+    queries CFS to find the CFS configurations that apply to those components.
+    Those CFS configurations are then updated in place.
 
     Args:
-        clone_url (str): a clone url to get the repo path from.
-
-    Returns:
-        the path component of the URL (i.e. with the protocol and host
-        information stripped)
-    """
-    return urllib.parse.urlparse(clone_url).path
-
-
-def ensure_product_layer(product, version, repo_url, playbook, state):
-    """Ensure a CFS configuration layer is present or absent for a product.
-
-    Args:
-        product (str): the name of the product to activate
-        version (str): installed product version to activate
-        repo_url (str): the full clone URL or the local path pointing to the
-            git repository containing the configuration. (e.g.:
-            "https://vcs.local/vcs/cray/sat-config-management.git" or just
-            "/vcs/cray/sat-config-management.git")
+        product (str): the name of the product
+        version (str): the version of the product
         playbook (str): path to the playbook in the VCS configuration repo.
-        state (LayerState): whether to ensure the layer is present or absent
+        state (LayerState): the expected state for the layer
+        hsm_query_params (dict): query parameters to pass to HSM to find the
+            components which should have their configurations updated
+        git_commit (str or None): the git commit hash to use in the layer
+        git_branch (str or None): the git branch to use in the layer. If neither
+            commit hash nor branch are specified, the commit hash from the product
+            catalog is used. Provide only one of git_branch or git_commit.
 
     Returns:
-        A tuple of the following items:
-            succeeded (list of str): names of configurations successfully updated
-            failed (list of str): names of configurations that failed to be updated
+        tuple: lists of names of CFSConfigurations which were successfully
+            updated and which failed to be updated.
+
+    Raises:
+        CFSConfigurationError: if there is a failure when querying HSM for
+            component IDs or CFS for configurations that apply to those
+            components.
     """
-    vcs_local_path = get_local_path(repo_url)
-    cfg_repo = VCSRepo(vcs_local_path)
-    commit_hash = cfg_repo.get_commit_hash_for_version(product, version)
-    layer_name = f'{product}-{version}'
+    # This can raise CFSConfigurationError
+    product_layer = CFSConfigurationLayer.from_product_catalog(
+        product, version, playbook=playbook,
+        commit=git_commit, branch=git_branch
+    )
 
-    # TODO (CRAYSAT-1220): Figure out if we need to be able to query
-    # configurations for other types of nodes.
-    hsm_params = {'role': 'Management', 'subrole': 'Master'}
+    # Protect against callers accidentally updating CFS configs that apply to all components
+    if not hsm_query_params:
+        raise CFSConfigurationError(f'HSM query parameters must be specified.')
+
+    session = AdminSession.get_session()
+    hsm_client = HSMClient(session)
+    cfs_client = CFSClient(session)
+
+    try:
+        cfs_configs = cfs_client.get_configurations_for_components(hsm_client, **hsm_query_params)
+    except APIError as err:
+        raise CFSConfigurationError(f'Failed to query CFS or HSM for component configurations: {err}')
+
     succeeded, failed = [], []
-    for cfg in CFSConfiguration.get_configurations_for_components(**hsm_params):
-        LOGGER.info('Updating CFS configuration "%s"', cfg.name)
+    for cfs_config in cfs_configs:
+        LOGGER.info(f'Updating CFS configuration {cfs_config.name}.')
+        cfs_config.ensure_layer(product_layer, state)
         try:
-            cfg.ensure_layer(layer_name, commit_hash, cfg_repo.clone_url, playbook, state=state)
-            succeeded.append(cfg.name)
+            cfs_config.save_to_cfs()
+            succeeded.append(cfs_config.name)
         except CFSConfigurationError as err:
-            LOGGER.warning('Could not update CFS configuration "%s": %s', cfg.name, err)
-            failed.append(cfg.name)
-
-    if not succeeded and not failed:
-        descriptor = ' and '.join([f'{param} {value}'
-                                   for param, value in hsm_params.items()])
-        LOGGER.warning(f'No CFS configurations found that apply to components with '
-                       f'{descriptor}.')
-        new_layer = {
-            'name': layer_name,
-            'commit': commit_hash,
-            'cloneUrl': cfg_repo.clone_url,
-            'playbook': playbook,
-        }
-        LOGGER.info(f'The following {product} layer should be used in the CFS configuration that '
-                    f'will be applied to NCNs with {descriptor}.\n{json.dumps(new_layer, indent=4)}')
+            LOGGER.warning(f'Could not update CFS configuration {cfs_config.name}: {err}')
+            failed.append(cfs_config.name)
 
     return succeeded, failed
 
 
-def cfs_activate_version(product, version, repo_url, playbook):
-    """Activate a product version by adding/updating its CFS layer for NCNs.
+def cfs_activate_version(product, version, playbook, hsm_query_params,
+                         git_commit=None, git_branch=None):
+    """Activate a product version by adding/updating its CFS layer to relevant CFS configs.
 
     See `ensure_product_layer` for details on the args and return value.
     """
-    return ensure_product_layer(product, version, repo_url, playbook, LayerState.PRESENT)
+    return ensure_product_layer(product, version, playbook, LayerState.PRESENT,
+                                hsm_query_params, git_commit, git_branch)
 
 
-def cfs_deactivate_version(product, version, repo_url, playbook):
-    """Deactivate a product version by removing its CFS layer for NCNs.
+def cfs_deactivate_version(product, version, playbook, hsm_query_params,
+                           git_commit=None, git_branch=None):
+    """Deactivate a product version by removing its CFS layer from relevant CFS configs.
 
     See `ensure_product_layer` for details on the args and return value.
     """
-    return ensure_product_layer(product, version, repo_url, playbook, LayerState.ABSENT)
+    return ensure_product_layer(product, version, playbook, LayerState.ABSENT,
+                                hsm_query_params, git_commit, git_branch)

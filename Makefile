@@ -14,8 +14,7 @@ pymod_build:
 		python3 setup.py sdist bdist_wheel
 
 pymod_test:
-		pip3 install -r requirements.txt
-		pip3 install -r requirements-dev.txt
+		pip3 install --extra-index-url "https://arti.dev.cray.com/artifactory/csm-python-modules-remote/simple" -r requirements-dev.lock.txt
 		mkdir -p pymod_test
 		python3 setup.py install --user
 		nosetests

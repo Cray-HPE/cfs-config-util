@@ -25,6 +25,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2022-05-17
+
+### Changed
+- Changed the command-line arguments accepted by the `cfs-config-util` entry
+  point to generalize this utility for use in other products and in other
+  workflows. Includes the following functionality:
+    - Options to specify base CFS configuration to be modified.
+    - Options to control how the modified CFS configuration is saved.
+    - Options to determine the contents of the layer to be added or removed.
+- Generalize the `cfs_activate_version` and `cfs_deactivate_version` functions
+  in the `activation` module to take HSM query parameters to find
+  configurations, and a git commit or branch.
+- Added a dependency on the `cray-product-catalog` Python package to support
+  querying the product catalog K8s ConfigMap.
+
 ## [2.0.3] - 2022-04-13
 
 ### Changed
