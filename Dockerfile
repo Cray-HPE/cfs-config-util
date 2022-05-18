@@ -19,7 +19,7 @@ RUN chmod +x /entrypoint.sh
 RUN apk update && apk add --no-cache python3 git bash && \
     python3 -m venv $VIRTUAL_ENV && \
     pip install --no-cache-dir -U pip && \
-    pip install --no-cache-dir --use-feature=in-tree-build /sat/ && \
+    pip install --no-cache-dir /sat/ && \
     rm -rf /sat/
 
 ENTRYPOINT ["/entrypoint.sh"]
