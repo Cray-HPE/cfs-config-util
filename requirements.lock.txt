@@ -1,6 +1,7 @@
 cachetools==4.2.4
 certifi==2021.10.8
 charset-normalizer==2.0.7
+cray-product-catalog == 1.6.0
 google-auth==2.3.2
 idna==3.3
 kubernetes==19.15.0

@@ -16,6 +16,7 @@ from requests_oauthlib import OAuth2Session
 
 from cfs_config_util.apiclient import load_kube_api
 from cfs_config_util.cached_property import cached_property
+from cfs_config_util.environment import API_GW_HOST, API_CERT_VERIFY
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,10 +40,8 @@ class AdminSession:
         Parameter management. Initialization of the OAuth2Session passes to
         self.get_session().
         """
-
-        # TODO: Update default value following DNS changes (see CRAYSAT-898.)
-        self.host = os.environ.get('API_GW_HOST', 'api-gw-service-nmn.local')
-        self.cert_verify = bool(os.environ.get('API_CERT_VERIFY', True))
+        self.host = API_GW_HOST
+        self.cert_verify = API_CERT_VERIFY
 
         client = LegacyApplicationClient(client_id=self.client_id, token=self.token)
         client.parse_request_body_response(json.dumps(self.token))

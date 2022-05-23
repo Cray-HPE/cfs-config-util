@@ -1,11 +1,10 @@
 """
 Client for querying the API gateway.
 
-(C) Copyright 2019-2021 Hewlett Packard Enterprise Development LP. All Rights Reserved.
+(C) Copyright 2019-2022 Hewlett Packard Enterprise Development LP. All Rights Reserved.
 """
 
 import logging
-import os
 from urllib.parse import urlunparse
 import warnings
 
@@ -15,6 +14,7 @@ from kubernetes.config.config_exception import ConfigException
 import requests
 from yaml import YAMLLoadWarning
 
+from cfs_config_util.environment import API_CERT_VERIFY, API_GW_HOST, API_TIMEOUT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,20 +77,20 @@ class APIGatewayClient:
 
         if host is None:
             if session is None:
-                host = os.environ.get('API_GW_HOST')
+                host = API_GW_HOST
             else:
                 host = session.host
 
         if cert_verify is None:
             if session is None:
-                cert_verify = bool(os.environ.get('API_CERT_VERIFY', True))
+                cert_verify = API_CERT_VERIFY
             else:
                 cert_verify = session.cert_verify
 
         self.session = session
         self.host = host
         self.cert_verify = cert_verify
-        self.timeout = int(os.environ.get('API_TIMEOUT', 60)) if timeout is None else timeout
+        self.timeout = API_TIMEOUT if timeout is None else timeout
 
     def set_timeout(self, timeout):
         self.timeout = timeout
@@ -506,7 +506,3 @@ class HSMClient(APIGatewayClient):
                     LOGGER.debug(f'HSM API error for {cid}: {err}')
 
         return components
-
-
-class CFSClient(APIGatewayClient):
-    base_resource_path = 'cfs/'
