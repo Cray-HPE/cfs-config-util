@@ -50,7 +50,7 @@ setup(
     author='Hewlett Packard Enterprise Development LP',
     license='Proprietary',
     packages=find_packages(exclude=['tests', 'tests.*', 'tools', 'tools.*']),
-    python_requires='>=3, <4',
+    python_requires='>=3.7, <4',
     # Top-level dependencies are parsed from requirements.txt
     install_requires=install_requires,
     # This makes setuptools generate our executable script automatically for us.
@@ -58,6 +58,8 @@ setup(
         'console_scripts': [
             'cfs-config-util=cfs_config_util.bin.main:main',
             'vcs-creds-helper=cfs_config_util.bin.vcs_creds_helper:main',
+            'passthrough-options-help=cfs_config_util.bin.passthrough_options_help:main',
+            'process-file-options=cfs_config_util.bin.process_file_options:main',
         ]
     },
 )

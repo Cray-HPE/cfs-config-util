@@ -3,13 +3,15 @@ Tests for cfs-config-util entry point parser.
 
 Copyright 2022 Hewlett Packard Enterprise Development LP
 """
+import argparse
 import contextlib
 import io
 import itertools
 import unittest
+from unittest.mock import patch
 
 from cfs_config_util.cfs import LayerState
-from cfs_config_util.parser import check_args, create_parser
+from cfs_config_util.parser import check_args, create_parser, create_passthrough_parser
 
 
 class TestParseAndCheckArgs(unittest.TestCase):
@@ -122,6 +124,36 @@ class TestParseAndCheckArgs(unittest.TestCase):
         """Test parsing with an invalid state arg."""
         full_args = self.product_layer_args + self.base_config_args + self.save_args + ['--state', 'gone']
         self.assert_parse_error(full_args, '--state: invalid')
+
+
+class TestCreatePassthroughParser(unittest.TestCase):
+    """Tests for the create_passthrough_parser function."""
+
+    def setUp(self):
+        self.mock_argument_parser_cls = patch('argparse.ArgumentParser').start()
+        self.mock_argument_parser = self.mock_argument_parser_cls.return_value
+        self.mock_add_git_options = patch('cfs_config_util.parser.add_git_options').start()
+        self.mock_add_base_options = patch('cfs_config_util.parser.add_base_options').start()
+        self.mock_add_save_options = patch('cfs_config_util.parser.add_save_options').start()
+
+    def tearDown(self):
+        patch.stopall()
+
+    def test_create_passthrough_parser(self):
+        """Test that only the desired passthrough options are added to the passthrough parser."""
+        parser = create_passthrough_parser()
+
+        self.mock_argument_parser_cls.assert_called_once_with(add_help=False,
+                                                              usage=argparse.SUPPRESS,
+                                                              allow_abbrev=False)
+        self.mock_argument_parser.add_argument_group.assert_called_once_with(
+            title='Git Options', description='Options that control the git ref used in the layer.'
+        )
+        self.mock_add_git_options.assert_called_once_with(
+            self.mock_argument_parser.add_argument_group.return_value
+        )
+        self.mock_add_base_options.assert_called_once_with(self.mock_argument_parser)
+        self.mock_add_save_options.assert_called_once_with(self.mock_argument_parser)
 
 
 if __name__ == '__main__':
