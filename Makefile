@@ -1,21 +1,42 @@
-# Copyright 2021 Hewlett Packard Enterprise Development LP
+#
+# MIT License
+#
+# (C) Copyright 2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
 #
 # Based on Makefile used in Cray-HPE/cray-product-catalog but without
 # the use of cms_meta_tools.
 
 NAME ?= cfs-config-util
+VERSION ?= $(shell build_scripts/version.sh)
 
-all: pymod_prepare pymod_build pymod_test
+all: prep unittest python_package image
 
-pymod_prepare:
-		pip3 install --upgrade pip setuptools wheel
+prep:
+		build_scripts/runBuildPrepVenv.sh
 
-pymod_build:
+unittest:
+		build_scripts/runUnitTestVenv.sh
+
+python_package:
 		python3 setup.py sdist bdist_wheel
 
-pymod_test:
-		pip3 install --extra-index-url "https://arti.dev.cray.com/artifactory/csm-python-modules-remote/simple" -r requirements-dev.lock.txt
-		mkdir -p pymod_test
-		python3 setup.py install --user
-		nosetests
-		pycodestyle --config=pycodestyle.conf cfs_config_util tests
+image:
+		docker build --pull $(DOCKER_ARGS) --tag '$(NAME):$(VERSION)' .
