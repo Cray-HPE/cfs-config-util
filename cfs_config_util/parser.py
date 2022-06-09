@@ -1,7 +1,27 @@
+# MIT License
+#
+# (C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
 """
 Parser definition for cfs-config-util entry point.
-
-Copyright 2021-2022 Hewlett Packard Enterprise Development LP
 """
 
 import argparse
@@ -22,11 +42,47 @@ SAVE_TO_FILE_OPTION = '--save-to-file'
 SAVE_TO_CFS_OPTION = '--save-to-cfs'
 
 
+def add_git_options(group):
+    """Add options which control which git ref is used in a layer.
+
+    Args:
+        group (argparse._ArgumentGroup): the parser group to which args are added
+
+    Returns: None
+    """
+    common_git_help = (
+        f'If {CLONE_URL_OPTION} is specified, either {GIT_BRANCH_OPTION} or '
+        f'{GIT_COMMIT_OPTION} is required. Otherwise, if {PRODUCT_OPTION} is '
+        f'specified and neither {GIT_BRANCH_OPTION} nor {GIT_COMMIT_OPTION} is '
+        f'specified, the git commit hash from the "commit" key '
+        f'in the product catalog data will be used.'
+    )
+    git_ref_mutex_group = group.add_mutually_exclusive_group()
+    git_ref_mutex_group.add_argument(
+        GIT_BRANCH_OPTION,
+        help=f'The git branch to resolve to a commit hash and specify in the '
+             f'configuration layer in CFS. {common_git_help}'
+    )
+    git_ref_mutex_group.add_argument(
+        GIT_COMMIT_OPTION,
+        help=f'The git commit hash to specify in the configuration layer in CFS. '
+             f'{common_git_help}'
+    )
+
+    group.add_argument(
+        '--no-resolve-branches', action='store_false', dest='resolve_branches',
+        help='Do not resolve branch names to corresponding commit hashes before '
+             'creating creating the CFS configuration layer.'
+    )
+
+
 def add_layer_content_options(parser):
     """Add options which control the content of the layer to be added or removed.
 
     Args:
         parser (argparse.ArgumentParser): the parser to which args are added
+
+    Returns: None
     """
     repo_group = parser.add_argument_group(
         title='VCS Repo Options',
@@ -69,30 +125,7 @@ def add_layer_content_options(parser):
              'is present or absent. Defaults to ensuring the layer is present.'
     )
 
-    common_git_help = (
-        f'If {CLONE_URL_OPTION} is specified, either {GIT_BRANCH_OPTION} or '
-        f'{GIT_COMMIT_OPTION} is required. Otherwise, if {PRODUCT_OPTION} is '
-        f'specified and neither {GIT_BRANCH_OPTION} nor {GIT_COMMIT_OPTION} is '
-        f'specified, the git commit hash from the "commit" key '
-        f'in the product catalog data will be used.'
-    )
-    git_ref_mutex_group = repo_group.add_mutually_exclusive_group()
-    git_ref_mutex_group.add_argument(
-        GIT_BRANCH_OPTION,
-        help=f'The git branch to resolve to a commit hash and specify in the '
-             f'configuration layer in CFS. {common_git_help}'
-    )
-    git_ref_mutex_group.add_argument(
-        GIT_COMMIT_OPTION,
-        help=f'The git commit hash to specify in the configuration layer in CFS. '
-             f'{common_git_help}'
-    )
-
-    repo_group.add_argument(
-        '--no-resolve-branches', action='store_false', dest='resolve_branches',
-        help='Do not resolve branch names to corresponding commit hashes before '
-             'creating creating the CFS configuration layer.'
-    )
+    add_git_options(repo_group)
 
 
 def add_base_options(parser):
@@ -190,13 +223,42 @@ def check_args(args):
         )
 
 
+def create_passthrough_parser():
+    """Create a parser for options that can be passed through product install scripts.
+
+    The cfs-config-util container image is run under `podman` by scripts
+    included in each product's install media. Some of the cfs-config-util
+    options are known by the product installer (e.g. the name and version of the
+    product, the playbook name), while other options may need to be passed
+    through to allow the admin flexibility in how they perform their install.
+
+    This creates a parser that contains just those passthrough options. This
+    parser can be used to output the usage information for just those options,
+    which can then be displayed by the installer script.
+
+    Returns:
+        argparse.ArgumentParser: the parser containing just the passthrough args
+    """
+    parser = argparse.ArgumentParser(add_help=False, usage=argparse.SUPPRESS, allow_abbrev=False)
+
+    git_group = parser.add_argument_group(
+        title='Git Options',
+        description='Options that control the git ref used in the layer.'
+    )
+    add_git_options(git_group)
+    add_base_options(parser)
+    add_save_options(parser)
+
+    return parser
+
+
 def create_parser():
     """Create the parser for the cfs-config-util entry point.
 
     Returns:
         argparse.ArgumentParser: the parser
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
 
     add_layer_content_options(parser)
     add_base_options(parser)

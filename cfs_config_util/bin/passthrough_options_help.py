@@ -1,8 +1,6 @@
-#!/usr/bin/env sh
-#
 # MIT License
 #
-# (C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2022 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -22,10 +20,21 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 #
-# Run nosetests with the options that are in setup.cfg
+"""
+Entry point used by product installers to obtain help on the passthrough options.
+"""
+
+from cfs_config_util.parser import create_passthrough_parser
 
 
-# TODO: It is not clear what the difference is between runCoverage.sh and
-# runUnitTest.sh. We run unit tests and compute coverage here. We'll have
-# to figure out how to actually do something with our coverage data.
-nosetests
+def main():
+    """Output help for the passthrough options.
+
+    Passthrough options are the options which are exposed to the system admin
+    through a script in the product release distribution.
+
+    Returns:
+        None
+    """
+    parser = create_passthrough_parser()
+    parser.print_help()
