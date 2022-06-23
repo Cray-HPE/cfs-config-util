@@ -20,7 +20,8 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 #
-"""A small program to retrieve the VCS password from k8s secrets.
+"""
+A small program to retrieve the VCS password from k8s secrets.
 
 This program is intended to be called using `GIT_ASKPASS` and prints the
 password to standard output. Use with care.
