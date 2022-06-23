@@ -21,6 +21,7 @@
 # OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
+#
 
 base_dir=$(dirname "$0")
 rm -rf cfs-config-util-venv && virtualenv -p $(which python3) ./cfs-config-util-venv
