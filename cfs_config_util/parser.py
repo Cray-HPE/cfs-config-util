@@ -113,10 +113,12 @@ def add_layer_content_options(parser):
     )
 
     repo_group.add_argument(
-        '--playbook',
+        '--playbook', action='append', dest='playbooks', metavar='playbook',
         help='The name of the playbook for the layer being targeted. If not '
              'specified, then no playbook will be specified in the layer, '
-             'which means CFS will use its internal default.'
+             'which means CFS will use its internal default. If specified '
+             'multiple times, then a separate layer will be targeted for each '
+             'given playbook.'
     )
 
     repo_group.add_argument(
