@@ -24,6 +24,8 @@
 """
 Tests for the CFS client library.
 """
+import io
+import json
 import logging
 from copy import deepcopy
 import datetime
@@ -466,6 +468,12 @@ class TestCFSConfigurationLayerFromCFS(unittest.TestCase):
         self.assertIsNone(layer.branch)
 
 
+class MockFile(io.StringIO):
+    """An in-memory file object which is not automatically closed"""
+    def __exit__(self, *_):
+        pass
+
+
 class TestCFSConfiguration(unittest.TestCase):
     """Tests for the CFSConfiguration class."""
     def setUp(self):
@@ -510,6 +518,21 @@ class TestCFSConfiguration(unittest.TestCase):
         self.duplicate_layer_config = CFSConfiguration(self.mock_cfs_client,
                                                        self.duplicate_layer_config_data)
 
+        self.single_layer_file_contents = json.dumps(self.single_layer_config_data)
+        self.single_layer_file_obj = MockFile(self.single_layer_file_contents)
+        self.empty_file_obj = MockFile()
+
+        def mock_open(path, mode):
+            if mode == 'x':
+                raise FileExistsError
+            elif mode == 'w':
+                return self.empty_file_obj
+            else:
+                return self.single_layer_file_obj
+
+        self.mock_open = patch('builtins.open', mock_open).start()
+        self.file_path = 'some_file.json'
+
     def tearDown(self):
         patch.stopall()
 
@@ -519,6 +542,10 @@ class TestCFSConfiguration(unittest.TestCase):
         cfs_config = CFSConfiguration(self.mock_cfs_client, self.single_layer_config_data)
         self.assertEqual('single-layer-config', cfs_config.name)
         self.assertEqual([mock_from_cfs.return_value], cfs_config.layers)
+
+    def test_construct_empty_configuration(self):
+        """Test creating an empty configuration"""
+        self.assertEqual(CFSConfiguration.empty(self.mock_cfs_client).layers, [])
 
     def test_req_payload(self):
         """Test the req_payload method of CFSConfiguration."""
@@ -557,6 +584,13 @@ class TestCFSConfiguration(unittest.TestCase):
             self.mock_cfs_client, self.mock_cfs_client.put.return_value.json.return_value)
         self.assertEqual(mock_cfs_config_cls.return_value, updated_config)
 
+    def test_save_to_cfs_no_overwrite(self):
+        """Test preventing overwriting an existing CFS configuration"""
+        self.mock_cfs_client.get.return_value.status_code = 200
+        config_name = self.single_layer_config_data['name']
+        with self.assertRaisesRegex(CFSConfigurationError, 'already exists'):
+            self.single_layer_config.save_to_cfs(config_name, overwrite=False)
+
     def test_save_to_cfs_api_failure(self):
         """Test that save_to_cfs raises an exception if CFS API request fails."""
         self.mock_cfs_client.put.side_effect = APIError('cfs problem')
@@ -575,6 +609,21 @@ class TestCFSConfiguration(unittest.TestCase):
 
         with self.assertRaisesRegex(CFSConfigurationError, err_regex):
             self.single_layer_config.save_to_cfs()
+
+    def test_save_to_file(self):
+        """Test that saving configuration to a file works"""
+        self.single_layer_config.save_to_file(self.file_path)
+
+        self.empty_file_obj.seek(0)
+        dumped_data = json.load(self.empty_file_obj)
+
+        for key, value in dumped_data.items():
+            self.assertEqual(self.single_layer_config_data[key], value)
+
+    def test_save_to_file_no_overwrite(self):
+        """Test that overwriting a file fails when overwrite disabled"""
+        with self.assertRaisesRegex(CFSConfigurationError, 'already exists'):
+            self.single_layer_config.save_to_file(self.file_path, overwrite=False)
 
     def test_add_new_layer(self):
         """Test adding a new, totally different, layer to a CFSConfiguration"""

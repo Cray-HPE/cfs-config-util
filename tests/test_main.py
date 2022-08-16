@@ -27,10 +27,14 @@ Tests for the cfs_config_util.main module.
 
 from argparse import Namespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
-from cfs_config_util.bin.main import construct_layers
+from cfs_config_util.cfs import CFSConfiguration
+from cfs_config_util.bin.main import (
+    construct_layers,
+    save_cfs_configuration,
+)
 
 
 class TestConstructLayers(unittest.TestCase):
@@ -97,3 +101,47 @@ class TestConstructLayers(unittest.TestCase):
                 commit=None,
                 branch=None,
             )
+
+
+class TestSaveCFSConfigs(unittest.TestCase):
+    """Tests for the save_cfs_configurations() function"""
+    def setUp(self):
+        self.product_name = 'testproduct'
+        self.config_name = 'test-config'
+        self.config_path = 'test_config.json'
+
+        self.base_args = Namespace(
+            product=self.product_name,
+            base_config=None,
+            base_file=None,
+            base_query=None,
+            save=None,
+            save_suffix=None,
+            save_to_file=None,
+            save_to_cfs=None,
+        )
+
+        self.mock_cfs_config = MagicMock(autospec=CFSConfiguration)
+
+    def tearDown(self):
+        patch.stopall()
+
+    def test_save_to_cfs_no_overwrite_when_no_base(self):
+        """Test that overwriting CFS config is disabled when no base is given"""
+        self.base_args.save_to_cfs = self.config_name
+
+        save_cfs_configuration(self.base_args, self.mock_cfs_config)
+        self.mock_cfs_config.save_to_cfs.assert_called_once_with(
+            self.config_name,
+            overwrite=False
+        )
+
+    def test_save_to_file_no_overwrite_when_no_base(self):
+        """Test that overwriting file is disabled when no base is given"""
+        self.base_args.save_to_file = self.config_path
+
+        save_cfs_configuration(self.base_args, self.mock_cfs_config)
+        self.mock_cfs_config.save_to_file.assert_called_once_with(
+            self.config_path,
+            overwrite=False
+        )

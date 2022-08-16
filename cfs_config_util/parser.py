@@ -39,8 +39,10 @@ BASE_CONFIG_OPTION = '--base-config'
 BASE_FILE_OPTION = '--base-file'
 BASE_QUERY_OPTION = '--base-query'
 
+SAVE_OPTION = '--save'
 SAVE_TO_FILE_OPTION = '--save-to-file'
 SAVE_TO_CFS_OPTION = '--save-to-cfs'
+SAVE_SUFFIX_OPTION = '--save-suffix'
 
 
 def add_git_options(group):
@@ -142,16 +144,14 @@ def add_base_options(parser):
         description='Options that control the CFS configuration to use as '
                     'a base for the modifications performed by this tool.'
     )
-    base_mutex_group = base_group.add_mutually_exclusive_group(required=True)
+    base_mutex_group = base_group.add_mutually_exclusive_group()
     base_mutex_group.add_argument(
         BASE_CONFIG_OPTION,
-        help='The name of the CFS configuration in CFS to use as a base. If no '
-             'such CFS configuration exists, start from an empty set of layers.'
+        help='The name of the CFS configuration in CFS to use as a base.'
     )
     base_mutex_group.add_argument(
         BASE_FILE_OPTION,
-        help='The path to a file containing a CFS configuration payload. '
-             'If no such file exists, start from an empty set of layers.'
+        help='The path to a file containing a CFS configuration payload.'
     )
     base_mutex_group.add_argument(
         BASE_QUERY_OPTION,
@@ -175,7 +175,7 @@ def add_save_options(parser):
     )
     save_mutex_group = save_group.add_mutually_exclusive_group(required=True)
     save_mutex_group.add_argument(
-        '--save', action='store_true',
+        SAVE_OPTION, action='store_true',
         help=f'If specified, save the modified configuration in place. If '
              f'{BASE_CONFIG_OPTION} is specified, the CFS configuration with '
              f'that name will be updated. If {BASE_FILE_OPTION} is specified, '
@@ -193,7 +193,7 @@ def add_save_options(parser):
              f'file name. Not compatible with {BASE_QUERY_OPTION}.'
     )
     save_mutex_group.add_argument(
-        '--save-suffix',
+        SAVE_SUFFIX_OPTION,
         help=f'If specified, save the configuration with a new name created '
              f'by appending this suffix. If {BASE_CONFIG_OPTION} is specified, '
              f'a new CFS configuration named with this suffix is created. If '
@@ -202,6 +202,16 @@ def add_save_options(parser):
              f'discovered will be saved to a new CFS configuration with this '
              f'suffix.'
     )
+
+
+def base_given(args):
+    """Helper function which checks if a base was specified.
+
+    Returns:
+        bool: True if any of --base-config, --base-file, or --base-query was
+        specified, and False otherwise.
+    """
+    return any([args.base_config, args.base_file, args.base_query])
 
 
 def check_args(args):
@@ -213,6 +223,11 @@ def check_args(args):
     Raises:
         ValueError: if any incompatible args are specified.
     """
+    if not base_given(args) and (args.save or args.save_suffix):
+        raise ValueError(f'If none of {BASE_CONFIG_OPTION}, {BASE_FILE_OPTION}, '
+                         f'or {BASE_QUERY_OPTION} is used, then neither {SAVE_OPTION} '
+                         f'nor {SAVE_SUFFIX_OPTION} may be used.')
+
     if args.base_query is not None and any([args.save_to_cfs, args.save_to_file]):
         raise ValueError(
             f'{BASE_QUERY_OPTION} is not compatible with {SAVE_TO_CFS_OPTION} '

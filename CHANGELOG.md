@@ -25,6 +25,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2022-08-17
+
+### Changed
+- The `--base-config`, `--base-file`, and `--base-query` options are no longer
+  required. If they are not supplied, then `cfs-config-util` will start from an
+  empty configuration, but overwriting existing configurations will be disabled.
+
+### Fixed
+- The `--help` text for `--base-config`, `--base-file`, and `--base-query` have
+  been corrected. If a non-existent CFS configuration is given with
+  `--base-config` or a non-existent file is given with `--base-file`, then an
+  error will be displayed. Similarly, if no CFS configurations are found with
+  `--base-query`, then an error will be displayed.
+
 ## [3.2.0] - 2022-08-09
 
 ### Added

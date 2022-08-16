@@ -116,7 +116,33 @@ class APIGatewayClient:
     def set_timeout(self, timeout):
         self.timeout = timeout
 
-    def _make_req(self, *args, req_type='GET', req_param=None, json=None):
+    @staticmethod
+    def raise_from_response(response):
+        """Raise an APIError based on the response body
+
+        Args:
+            response (requests.Response): the Response object from a request
+
+        Raises:
+            APIError: containing an error message with details from the request
+        """
+        api_err_msg = (f"{response.request.method} request to URL "
+                       f"'{response.request.url}' failed with status "
+                       f"code {response.status_code}: {response.reason}")
+        # Attempt to get more information from response
+        try:
+            problem = response.json()
+        except ValueError:
+            raise APIError(api_err_msg)
+
+        if 'title' in problem:
+            api_err_msg += f'. {problem["title"]}'
+        if 'detail' in problem:
+            api_err_msg += f' Detail: {problem["detail"]}'
+
+        raise APIError(api_err_msg)
+
+    def _make_req(self, *args, req_type='GET', req_param=None, json=None, raise_not_ok=True):
         """Perform HTTP request with type `req_type` to resource given in `args`.
         Args:
             *args: Variable length list of path components used to construct
@@ -125,14 +151,17 @@ class APIGatewayClient:
             req_param: Parameter(s) depending on request type.
             json (dict): The data dict to encode as JSON and pass as the body of
                 a POST request.
+            raise_not_ok (bool): If True and the response code is >=400, raise
+                an APIError. If False, return the response object.
 
         Returns:
             The requests.models.Response object if the request was successful.
 
         Raises:
             ReadTimeout: if the req_type is STREAM and there is a ReadTimeout.
-            APIError: if the status code of the response is >= 400 or request
-                raises a RequestException of any kind.
+            APIError: if the status code of the response is >= 400 and
+                raise_not_ok is True, or request raises a RequestException of any
+                kind.
         """
         url = urlunparse(('https', self.host, 'apis/{}{}'.format(
             self.base_resource_path, '/'.join(args)), '', '', ''))
@@ -174,31 +203,19 @@ class APIGatewayClient:
         LOGGER.debug("Received response to %s request to URL '%s' "
                      "with status code: '%s': %s", req_type, r.url, r.status_code, r.reason)
 
-        if not r.ok:
-            api_err_msg = (f"{req_type} request to URL '{url}' failed with status "
-                           f"code {r.status_code}: {r.reason}")
-            # Attempt to get more information from response
-            try:
-                problem = r.json()
-            except ValueError:
-                raise APIError(api_err_msg)
-
-            if 'title' in problem:
-                api_err_msg += f'. {problem["title"]}'
-            if 'detail' in problem:
-                api_err_msg += f' Detail: {problem["detail"]}'
-
-            raise APIError(api_err_msg)
+        if raise_not_ok and not r.ok:
+            self.raise_from_response(r)
 
         return r
 
-    def get(self, *args, params=None):
+    def get(self, *args, params=None, **kwargs):
         """Issue an HTTP GET request to resource given in `args`.
 
         Args:
             *args: Variable length list of path components used to construct
                 the path to the resource to GET.
             params (dict): Parameters dictionary to pass through to request.get.
+            **kwargs: additional keyword arguments passed through to _make_req().
 
         Returns:
             The requests.models.Response object if the request was successful.
@@ -208,17 +225,18 @@ class APIGatewayClient:
                 raises a RequestException of any kind.
         """
 
-        r = self._make_req(*args, req_type='GET', req_param=params)
+        r = self._make_req(*args, req_type='GET', req_param=params, **kwargs)
 
         return r
 
-    def stream(self, *args, params=None):
+    def stream(self, *args, params=None, **kwargs):
         """Issue an HTTP GET stream request to resource given in `args`.
 
         Args:
             *args: Variable length list of path components used to construct
                 the path to the resource to GET.
             params (dict): Parameters dictionary to pass through to request.get.
+            **kwargs: additional keyword arguments passed through to _make_req().
 
         Returns:
             The requests.models.Response object if the request was successful.
@@ -229,11 +247,11 @@ class APIGatewayClient:
                 raises a RequestException of any kind.
         """
 
-        r = self._make_req(*args, req_type='STREAM', req_param=params)
+        r = self._make_req(*args, req_type='STREAM', req_param=params, **kwargs)
 
         return r
 
-    def post(self, *args, payload=None, json=None):
+    def post(self, *args, payload=None, json=None, **kwargs):
         """Issue an HTTP POST request to resource given in `args`.
 
         Args:
@@ -241,6 +259,7 @@ class APIGatewayClient:
                 the path to POST target.
             payload: The encoded data to send as the POST body.
             json: The data dict to encode as JSON and send as the POST body.
+            **kwargs: additional keyword arguments passed through to _make_req().
 
         Returns:
             The requests.models.Response object if the request was successful.
@@ -250,17 +269,18 @@ class APIGatewayClient:
                 raises a RequestException of any kind.
         """
 
-        r = self._make_req(*args, req_type='POST', req_param=payload, json=json)
+        r = self._make_req(*args, req_type='POST', req_param=payload, json=json, **kwargs)
 
         return r
 
-    def put(self, *args, payload=None, json=None):
+    def put(self, *args, payload=None, json=None, **kwargs):
         """Issue an HTTP PUT request to resource given in `args`.
 
         Args:
             *args: Variable length list of path components used to construct
                 the path to PUT target.
             payload: JSON data to put.
+            **kwargs: additional keyword arguments passed through to _make_req().
 
         Returns:
             The requests.models.Response object if the request was successful.
@@ -270,17 +290,18 @@ class APIGatewayClient:
                 raises a RequestException of any kind.
         """
 
-        r = self._make_req(*args, req_type='PUT', req_param=payload, json=json)
+        r = self._make_req(*args, req_type='PUT', req_param=payload, json=json, **kwargs)
 
         return r
 
-    def patch(self, *args, payload):
+    def patch(self, *args, payload, **kwargs):
         """Issue an HTTP PATCH request to resource given in `args`.
 
         Args:
             *args: Variable length list of path components used to construct
                 the path to PATCH target.
             payload: JSON data to put.
+            **kwargs: additional keyword arguments passed through to _make_req().
 
         Returns:
             The requests.models.Response object if the request was successful.
@@ -290,16 +311,17 @@ class APIGatewayClient:
                 raises a RequestException of any kind.
         """
 
-        r = self._make_req(*args, req_type='PATCH', req_param=payload)
+        r = self._make_req(*args, req_type='PATCH', req_param=payload, **kwargs)
 
         return r
 
-    def delete(self, *args):
+    def delete(self, *args, **kwargs):
         """Issue an HTTP DELETE resource given in `args`.
 
         Args:
             *args: Variable length list of path components used to construct
                 the path to DELETE target.
+            **kwargs: additional keyword arguments passed through to _make_req().
 
         Returns:
             The requests.models.Response object if the request was successful.
@@ -309,7 +331,7 @@ class APIGatewayClient:
                 raises a RequestException of any kind.
         """
 
-        r = self._make_req(*args, req_type='DELETE')
+        r = self._make_req(*args, req_type='DELETE', **kwargs)
 
         return r
 
