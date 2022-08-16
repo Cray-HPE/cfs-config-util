@@ -117,36 +117,51 @@ def get_cfs_configurations(args, cfs_client, hsm_client):
         return [CFSConfiguration(cfs_client, file_data)]
 
 
-def construct_layer(args):
+def construct_layers(args):
     """Construct a CFSConfigurationLayer which should be added or removed from a CFSConfiguration.
 
     Args:
         args (argparse.Namespace): the parsed command-line args
 
     Returns:
-        CFSConfigurationLayer: the layer that should be added or removed
+        List[CFSConfigurationLayer]: the layers that should be added or removed
 
     Raises:
         CFSConfigurationError: if unable to construct the requested layer
     """
     # These kwargs are common between both layers defined by clone URL and layers
     # defined by product.
-    common_args = {
-        'name': args.layer_name,
-        'playbook': args.playbook,
-        'commit': args.git_commit,
-        'branch': args.git_branch
-    }
-    if args.product:
-        if ':' in args.product:
-            product_name, product_version = args.product.split(':', maxsplit=1)
+    layers = []
+    playbooks = args.playbooks
+
+    # If the --playbook option is not supplied, then only create one layer with
+    # the default playbook. Passing `None` as the playbook argument to the
+    # layer creation methods achieves this.
+    if playbooks is None:
+        playbooks = [None]
+
+    for playbook in playbooks:
+        common_args = {
+            'name': args.layer_name,
+            'playbook': playbook,
+            'commit': args.git_commit,
+            'branch': args.git_branch
+        }
+        if args.product:
+            if ':' in args.product:
+                product_name, product_version = args.product.split(':', maxsplit=1)
+            else:
+                product_name = args.product
+                product_version = None
+            layers.append(
+                CFSConfigurationLayer.from_product_catalog(
+                    product_name, product_version=product_version, **common_args)
+            )
         else:
-            product_name = args.product
-            product_version = None
-        return CFSConfigurationLayer.from_product_catalog(
-            product_name, product_version=product_version, **common_args)
-    else:
-        return CFSConfigurationLayer.from_clone_url(args.clone_url, **common_args)
+            layers.append(
+                CFSConfigurationLayer.from_clone_url(args.clone_url, **common_args)
+            )
+    return layers
 
 
 def save_cfs_configuration(args, cfs_config):
@@ -207,12 +222,10 @@ def main():
     session = AdminSession.get_session()
     hsm_client = HSMClient(session)
     cfs_client = CFSClient(session)
+
     try:
         base_configs = get_cfs_configurations(args, cfs_client, hsm_client)
-        layer = construct_layer(args)
-
-        if args.resolve_branches:
-            layer.resolve_branch_to_commit_hash()
+        layers = construct_layers(args)
 
     except CFSConfigurationError as err:
         LOGGER.error(str(err))
@@ -220,7 +233,10 @@ def main():
 
     succeeded, skipped, failed = [], [], []
     for base_config in base_configs:
-        base_config.ensure_layer(layer, args.state)
+        for layer in layers:
+            if args.resolve_branches:
+                layer.resolve_branch_to_commit_hash()
+            base_config.ensure_layer(layer, args.state)
 
         if not base_config.changed:
             skipped.append(base_config)
