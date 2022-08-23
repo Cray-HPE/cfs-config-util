@@ -79,13 +79,16 @@ class TestParseAndCheckArgs(unittest.TestCase):
     def test_parse_and_check_combinations(self):
         """Test parsing args when given various combinations of args."""
         for layer_args, base_args, save_args in itertools.product(self.layer_alternatives,
-                                                                  self.base_alternatives,
+                                                                  self.base_alternatives + [],
                                                                   self.save_alternatives):
             full_args = layer_args + base_args + save_args
             with self.subTest(full_args=full_args):
-                # If using --base-query, then must use --save or --save-suffix
-                valid_combo = (base_args != self.base_query_args
-                               or save_args in [self.save_args, self.save_suffix_args])
+                # If using --base-query, then must use --save or --save-suffix.
+                # If not using any --base*, cannot use --save or --save-suffix.
+                valid_combo = (not (base_args == self.base_query_args
+                                    and save_args in [self.save_to_cfs_args, self.save_to_file_args])
+                               and (base_args or save_args not in [self.save_args, self.save_suffix_args]))
+
                 parsed_args = self.parser.parse_args(full_args)
                 if valid_combo:
                     check_args(parsed_args)
@@ -119,11 +122,6 @@ class TestParseAndCheckArgs(unittest.TestCase):
     def test_missing_layer_args(self):
         """Test parsing when missing an arg that defines the layer."""
         self.assert_parse_error(self.base_config_args + self.save_args,
-                                self.missing_args_msg)
-
-    def test_missing_base_args(self):
-        """Test parsing when missing an argument specifying the base configuration or file."""
-        self.assert_parse_error(self.product_layer_args + self.save_args,
                                 self.missing_args_msg)
 
     def test_missing_save_args(self):

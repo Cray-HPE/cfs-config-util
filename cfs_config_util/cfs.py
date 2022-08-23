@@ -366,6 +366,17 @@ class CFSConfiguration:
                        for layer_data in self.data.get('layers', [])]
         self.changed = False
 
+    @classmethod
+    def empty(cls, cfs_client):
+        """Get a new empty CFSConfiguration with no layers.
+
+        Returns:
+            CFSConfiguration: a new empty configuration
+        """
+        return cls(cfs_client, {
+            'layers': []
+        })
+
     @property
     def name(self):
         """str or None: the name of the CFS configuration"""
@@ -376,23 +387,45 @@ class CFSConfiguration:
         """dict: a dict containing just the layers key used to update in requests"""
         return {'layers': [layer.req_payload for layer in self.layers]}
 
-    def save_to_cfs(self, name=None):
+    def save_to_cfs(self, name=None, overwrite=True):
         """Save the configuration to CFS, optionally with a new name.
 
         Args:
             name (str or None): the name to save as. Required if this
                 configuration does not yet have a name.
+            overwrite (bool): if True, silently overwrite an existing CFS
+                configuration given by `name`. If False, raise a
+                CFSConfigurationError if a configuration with `name` already
+                exists
 
         Returns:
             CFSConfiguration: the new configuration that was saved to CFS
 
         Raises:
             CFSConfigurationError: if there is a failure saving the configuration
-                to CFS.
+                to CFS, or if a CFS configuration exists and `overwrite` is False
         """
         if not name and not self.name:
             raise ValueError('A name must be specified for the CFS configuration.')
         name = name or self.name
+
+        # If overwriting is disabled, throw an error if we try to overwrite a
+        # configuration
+        if not overwrite:
+            try:
+                response = self._cfs_client.get('v2', 'configurations', name, raise_not_ok=False)
+
+                # If response was OK, that indicates there's already a CFS configuration
+                if response.ok:
+                    raise CFSConfigurationError(f'A configuration named {name} already exists '
+                                                f'and will not be overwritten.')
+                elif response.status_code != 404:
+                    # If there's a failure for any reason other than a missing
+                    # configuration, throw an APIError
+                    self._cfs_client.raise_from_response(response)
+
+            except APIError as err:
+                raise CFSConfigurationError(f'Failed to retrieve CFS configuration "{self.name}": {err}')
 
         try:
             response_json = self._cfs_client.put('v2', 'configurations', name,
@@ -406,22 +439,28 @@ class CFSConfiguration:
         LOGGER.info('Successfully saved CFS configuration "%s"', name)
         return CFSConfiguration(self._cfs_client, response_json)
 
-    def save_to_file(self, file_path):
+    def save_to_file(self, file_path, overwrite=True):
         """Save the configuration to a file.
 
         Args:
             file_path (str): the path to the file where this config should be saved
+            overwrite (bool): if True, silently overwrite an existing file
+            given by `file_path`. If False, raise a CFSConfigurationError if
+            `file_path` already exists.
 
         Returns:
             None
 
         Raises:
             CFSConfigurationError: if there is a failure saving the configuration
-                to the file.
+                to the file, or if the file exists and overwrite is `False`.
         """
         try:
-            with open(file_path, 'w') as f:
+            with open(file_path, 'w' if overwrite else 'x') as f:
                 json.dump(self.req_payload, f, indent=2)
+        except FileExistsError:
+            raise CFSConfigurationError(f'Configuration at path {file_path} already exists '
+                                        f'and will not be overwritten.')
         except OSError as err:
             raise CFSConfigurationError(f'Failed to write to file file_path: {err}')
 

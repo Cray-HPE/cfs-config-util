@@ -31,7 +31,12 @@ import logging
 
 from cfs_config_util.apiclient import APIError, HSMClient
 from cfs_config_util.cfs import CFSClient
-from cfs_config_util.parser import check_args, create_parser, BASE_QUERY_OPTION
+from cfs_config_util.parser import (
+    BASE_QUERY_OPTION,
+    base_given,
+    check_args,
+    create_parser,
+)
 from cfs_config_util.session import AdminSession
 from cfs_config_util.cfs import CFSConfiguration, CFSConfigurationError, CFSConfigurationLayer
 
@@ -97,7 +102,12 @@ def get_cfs_configurations(args, cfs_client, hsm_client):
             )
 
         try:
-            return cfs_client.get_configurations_for_components(hsm_client, **query_params)
+            configs = cfs_client.get_configurations_for_components(hsm_client, **query_params)
+            if not configs:
+                raise CFSConfigurationError(
+                    f'No configurations were found matching the query "{args.base_query}".'
+                )
+            return configs
         except APIError as err:
             raise CFSConfigurationError(
                 f'Could not retrieve CFS configurations for HSM components '
@@ -194,10 +204,16 @@ def save_cfs_configuration(args, cfs_config):
             cfs_config.save_to_file(f'{args.base_file}{args.save_suffix}')
 
     elif args.save_to_cfs:
-        cfs_config.save_to_cfs(args.save_to_cfs)
+        cfs_config.save_to_cfs(
+            args.save_to_cfs,
+            overwrite=base_given(args)
+        )
 
     elif args.save_to_file:
-        cfs_config.save_to_file(args.save_to_file)
+        cfs_config.save_to_file(
+            args.save_to_file,
+            overwrite=base_given(args)
+        )
 
 
 def main():
@@ -224,7 +240,13 @@ def main():
     cfs_client = CFSClient(session)
 
     try:
-        base_configs = get_cfs_configurations(args, cfs_client, hsm_client)
+        if base_given(args):
+            base_configs = get_cfs_configurations(args, cfs_client, hsm_client)
+        else:
+            LOGGER.info('No base configuration given. Starting from empty configuration. '
+                        'Existing configurations will not be overwritten.')
+            base_configs = [CFSConfiguration.empty(cfs_client)]
+
         layers = construct_layers(args)
 
     except CFSConfigurationError as err:
