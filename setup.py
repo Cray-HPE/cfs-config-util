@@ -61,7 +61,6 @@ setup(
     entry_points={
         'console_scripts': [
             'cfs-config-util=cfs_config_util.bin.main:main',
-            'vcs-creds-helper=cfs_config_util.bin.vcs_creds_helper:main',
             'passthrough-options-help=cfs_config_util.bin.passthrough_options_help:main',
             'process-file-options=cfs_config_util.bin.process_file_options:main',
         ]

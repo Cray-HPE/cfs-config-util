@@ -26,14 +26,20 @@ Utility functions for activating or deactivating a version.
 """
 import logging
 
-from cfs_config_util.apiclient import APIError, HSMClient
-from cfs_config_util.cfs import (
+from csm_api_client.service.cfs import (
     CFSClient,
     CFSConfigurationLayer,
     CFSConfigurationError,
     LayerState
 )
-from cfs_config_util.session import AdminSession
+from csm_api_client.service.gateway import APIError
+from csm_api_client.service.hsm import HSMClient
+from csm_api_client.session import AdminSession
+
+from cfs_config_util.environment import (
+    API_CERT_VERIFY,
+    API_GW_HOST
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -78,7 +84,7 @@ def ensure_product_layer(product, version, playbook, state,
     if not hsm_query_params:
         raise CFSConfigurationError(f'HSM query parameters must be specified.')
 
-    session = AdminSession.get_session()
+    session = AdminSession(API_GW_HOST, API_CERT_VERIFY)
     hsm_client = HSMClient(session)
     cfs_client = CFSClient(session)
 

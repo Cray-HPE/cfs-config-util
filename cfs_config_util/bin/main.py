@@ -29,16 +29,26 @@ import argparse
 import json
 import logging
 
-from cfs_config_util.apiclient import APIError, HSMClient
-from cfs_config_util.cfs import CFSClient
+from csm_api_client.service.cfs import (
+    CFSClient,
+    CFSConfiguration,
+    CFSConfigurationError,
+    CFSConfigurationLayer,
+)
+from csm_api_client.service.gateway import APIError
+from csm_api_client.service.hsm import HSMClient
+from csm_api_client.session import AdminSession
+
+from cfs_config_util.environment import (
+    API_CERT_VERIFY,
+    API_GW_HOST,
+)
 from cfs_config_util.parser import (
     BASE_QUERY_OPTION,
     base_given,
     check_args,
     create_parser,
 )
-from cfs_config_util.session import AdminSession
-from cfs_config_util.cfs import CFSConfiguration, CFSConfigurationError, CFSConfigurationLayer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,11 +77,11 @@ def get_cfs_configurations(args, cfs_client, hsm_client):
 
     Args:
         args (argparse.Namespace): the parsed command-line args
-        cfs_client (cfs_config_util.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
         hsm_client (cfs_config_util.apiclient.HSMClient): the HSM API client
 
     Returns:
-        list of cfs_config_util.cfs.CFSConfiguration: the CFS configurations
+        list of csm_api_client.service.cfs.CFSConfiguration: the CFS configurations
             from CFS or loaded from a file. If a name of a CFS config or a file
             name is given, the list will have only one element.
 
@@ -165,7 +175,7 @@ def construct_layers(args):
                 product_version = None
             layers.append(
                 CFSConfigurationLayer.from_product_catalog(
-                    product_name, product_version=product_version, **common_args)
+                    product_name, API_GW_HOST, product_version=product_version, **common_args)
             )
         else:
             layers.append(
@@ -179,7 +189,7 @@ def save_cfs_configuration(args, cfs_config):
 
     Args:
         args (argparse.Namespace): the parsed command-line args
-        cfs_config (cfs_config_util.cfs.CFSConfiguration): the modified
+        cfs_config (csm_api_client.service.cfs.CFSConfiguration): the modified
             CFS configuration to save
 
     Returns:
@@ -235,7 +245,7 @@ def main():
         LOGGER.error(str(err))
         raise SystemExit(1)
 
-    session = AdminSession.get_session()
+    session = AdminSession(API_GW_HOST, API_CERT_VERIFY)
     hsm_client = HSMClient(session)
     cfs_client = CFSClient(session)
 

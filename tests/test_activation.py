@@ -28,16 +28,17 @@ import logging
 import unittest
 from unittest.mock import Mock, patch
 
+from csm_api_client.service.cfs import (
+    CFSConfiguration,
+    CFSConfigurationError,
+    LayerState
+)
+from csm_api_client.service.gateway import APIError
+
 from cfs_config_util.activation import (
     cfs_activate_version,
     cfs_deactivate_version,
     ensure_product_layer
-)
-from cfs_config_util.apiclient import APIError
-from cfs_config_util.cfs import (
-    CFSConfiguration,
-    CFSConfigurationError,
-    LayerState
 )
 
 

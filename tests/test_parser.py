@@ -31,7 +31,8 @@ import itertools
 import unittest
 from unittest.mock import patch
 
-from cfs_config_util.cfs import LayerState
+from csm_api_client.service.cfs import LayerState
+
 from cfs_config_util.parser import check_args, create_parser, create_passthrough_parser
 
 

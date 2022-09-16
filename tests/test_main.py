@@ -30,7 +30,9 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 
-from cfs_config_util.cfs import CFSConfiguration
+from csm_api_client.service.cfs import CFSConfiguration
+
+from cfs_config_util.environment import API_GW_HOST
 from cfs_config_util.bin.main import (
     construct_layers,
     save_cfs_configuration,
@@ -64,6 +66,7 @@ class TestConstructLayers(unittest.TestCase):
         construct_layers(self.args)
         self.mock_cfs_configuration_layer.from_product_catalog.assert_called_once_with(
             self.product_name,
+            API_GW_HOST,
             product_version=None,
             name=self.layer_name,
             playbook=self.playbook_name,
@@ -77,6 +80,7 @@ class TestConstructLayers(unittest.TestCase):
         construct_layers(self.args)
         self.mock_cfs_configuration_layer.from_product_catalog.assert_called_once_with(
             self.product_name,
+            API_GW_HOST,
             product_version=None,
             name=self.layer_name,
             playbook=None,
@@ -95,6 +99,7 @@ class TestConstructLayers(unittest.TestCase):
         for playbook in playbooks:
             self.mock_cfs_configuration_layer.from_product_catalog.assert_any_call(
                 self.product_name,
+                API_GW_HOST,
                 product_version=None,
                 name=self.layer_name,
                 playbook=playbook,

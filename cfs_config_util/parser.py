@@ -27,7 +27,7 @@ Parser definition for cfs-config-util entry point.
 
 import argparse
 
-from cfs_config_util.cfs import LayerState
+from csm_api_client.service.cfs import LayerState
 
 PRODUCT_OPTION = '--product'
 CLONE_URL_OPTION = '--clone-url'
