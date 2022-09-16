@@ -5,7 +5,7 @@ cray-product-catalog == 1.6.0
 google-auth==2.3.2
 idna==3.3
 kubernetes==19.15.0
-oauthlib==3.1.1
+oauthlib==3.2.1
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 python-dateutil==2.8.2
