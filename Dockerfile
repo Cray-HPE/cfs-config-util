@@ -38,7 +38,8 @@ COPY entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 ARG PIP_EXTRA_INDEX_URL="https://artifactory.algol60.net/artifactory/csm-python-modules/simple"
-RUN apk update && apk add --no-cache python3 git bash && \
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+    apk update && apk add --no-cache python3 git bash && \
     python3 -m venv $VIRTUAL_ENV && \
     pip install --no-cache-dir -U pip && \
     pip install --no-cache-dir /sat/ && \

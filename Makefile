@@ -26,6 +26,9 @@
 
 NAME ?= cfs-config-util
 VERSION ?= $(shell build_scripts/version.sh)
+ifneq ($(wildcard ${HOME}/.netrc),)
+	DOCKER_ARGS ?= --secret id=netrc,src=${HOME}/.netrc
+endif
 
 all: prep unittest python_package image
 
