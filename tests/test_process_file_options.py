@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2022-2023 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@ class TestProcessFileOptions(unittest.TestCase):
     """Test for the process_file_options function."""
 
     def setUp(self):
-        self.common_args = ['--product', 'sat', '--playbook', 'sat-ncn.yml']
+        self.common_args = ['update-config', '--product', 'sat', '--playbook', 'sat-ncn.yml']
         self.common_args_string = ' '.join(self.common_args)
         self.base_file_name = 'ncn-personalization.json'
         self.save_file_name = 'updated-ncn-personalization.json'
