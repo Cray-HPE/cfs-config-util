@@ -25,6 +25,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2023-09-14
+
+### Changed
+- The main entry point now requires an action to be specified. This is either
+  `update-configs` or `update-components`. The `update-configs` action
+  implements all functionality which used to occur when no action was specified.
+
+### Added
+- Added a new `update-components` action which updates CFS components and waits
+  for them to be configured.
+- Added options to the `update-configs` action which allow for the CFS
+  configuration to be assigned to CFS components.
+- Added logic to the `update-configs` action which waits for CFS components
+  which have been affected by CFS configuration changes to become configured.
+
 ## [4.0.3] - 2023-08-04
 
 ### Security
