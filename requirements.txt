@@ -1,2 +1,2 @@
 cray-product-catalog >= 1.6.0
-csm-api-client >= 1.0, < 2.0
+csm-api-client >= 1.2, < 2.0
