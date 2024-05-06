@@ -1,6 +1,6 @@
 # Changelog
 
-(C) Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+(C) Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+# [5.0.1] - 2024-05-06
+
+### Security
+- Update idna from 3.4 to 3.7 to address CVE-2024-3651.
+- Update pydantic from 1.10.2 to 1.10.13 to address CVE-2024-3772.
+- Update urllib3 from 1.26.12 to 1.26.18 to address CVE-2023-45803.
 
 ## [5.0.0] - 2023-09-14
 
