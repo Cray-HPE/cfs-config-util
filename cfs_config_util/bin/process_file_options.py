@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2022, 2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,7 @@ import json
 import os
 import sys
 
-from cfs_config_util.parser import create_parser, BASE_FILE_OPTION, SAVE_TO_FILE_OPTION
+from cfs_config_util.parser import BASE_FILE_OPTION, SAVE_TO_FILE_OPTION, create_parser
 
 DATA_DIR = '/data/'
 INPUT_DATA_DIR = os.path.join(DATA_DIR, 'input')

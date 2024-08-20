@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2022, 2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -132,7 +132,7 @@ class TestEnsureProductLayer(unittest.TestCase):
         self.mock_cfs_config_layer = self.mock_cfs_config_layer_cls.from_product_catalog.return_value
         self.mock_admin_session = patch('cfs_config_util.activation.AdminSession').start()
         self.mock_hsm_client = patch('cfs_config_util.activation.HSMClient').start().return_value
-        self.mock_cfs_client = patch('cfs_config_util.activation.CFSClient').start().return_value
+        self.mock_cfs_client = patch('cfs_config_util.activation.CFSClientBase.get_cfs_client').start().return_value
 
         self.mock_cfs_config_names = ['ncn-personalization', 'ncn-personalization-storage']
         self.mock_cfs_configs = []

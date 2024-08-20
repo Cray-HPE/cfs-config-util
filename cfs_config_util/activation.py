@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2022, 2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -27,7 +27,7 @@ Utility functions for activating or deactivating a version.
 import logging
 
 from csm_api_client.service.cfs import (
-    CFSClient,
+    CFSClientBase,
     CFSConfigurationLayer,
     CFSConfigurationError,
     LayerState
@@ -46,7 +46,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def ensure_product_layer(product, version, playbook, state,
-                         hsm_query_params, git_commit=None, git_branch=None):
+                         hsm_query_params, git_commit=None, git_branch=None,
+                         cfs_version='v3'):
     """Ensure the product layer is present/absent in CFS configuration(s).
 
     This queries HSM for components matching the hsm_query_params and then
@@ -64,6 +65,7 @@ def ensure_product_layer(product, version, playbook, state,
         git_branch (str or None): the git branch to use in the layer. If neither
             commit hash nor branch are specified, the commit hash from the product
             catalog is used. Provide only one of git_branch or git_commit.
+        cfs_version (str): the CFS version to use. Either "v2" or "v3".
 
     Returns:
         tuple: lists of names of CFSConfigurations which were successfully
@@ -86,7 +88,7 @@ def ensure_product_layer(product, version, playbook, state,
 
     session = AdminSession(API_GW_HOST, API_CERT_VERIFY)
     hsm_client = HSMClient(session)
-    cfs_client = CFSClient(session)
+    cfs_client = CFSClientBase.get_cfs_client(session, cfs_version)
 
     try:
         cfs_configs = cfs_client.get_configurations_for_components(hsm_client, **hsm_query_params)
@@ -108,20 +110,20 @@ def ensure_product_layer(product, version, playbook, state,
 
 
 def cfs_activate_version(product, version, playbook, hsm_query_params,
-                         git_commit=None, git_branch=None):
+                         git_commit=None, git_branch=None, cfs_version='v3'):
     """Activate a product version by adding/updating its CFS layer to relevant CFS configs.
 
     See `ensure_product_layer` for details on the args and return value.
     """
     return ensure_product_layer(product, version, playbook, LayerState.PRESENT,
-                                hsm_query_params, git_commit, git_branch)
+                                hsm_query_params, git_commit, git_branch, cfs_version)
 
 
 def cfs_deactivate_version(product, version, playbook, hsm_query_params,
-                           git_commit=None, git_branch=None):
+                           git_commit=None, git_branch=None, cfs_version='v3'):
     """Deactivate a product version by removing its CFS layer from relevant CFS configs.
 
     See `ensure_product_layer` for details on the args and return value.
     """
     return ensure_product_layer(product, version, playbook, LayerState.ABSENT,
-                                hsm_query_params, git_commit, git_branch)
+                                hsm_query_params, git_commit, git_branch, cfs_version)

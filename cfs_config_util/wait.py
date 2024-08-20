@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2023-2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,7 @@ def get_components_by_status(cfs_client, component_ids):
     """Get a dict mapping component state to a list of components in that state.
 
     Args:
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
         component_ids (Iterable): the component IDs to query
 
     Returns:
@@ -52,6 +52,8 @@ def get_components_by_status(cfs_client, component_ids):
     disabled_components = set()
     error_components = set()
     components_by_status = defaultdict(set)
+    config_status_key = cfs_client.join_words('configuration', 'status')
+
     for component_id in component_ids:
         try:
             component_data = cfs_client.get('components', component_id).json()
@@ -60,7 +62,7 @@ def get_components_by_status(cfs_client, component_ids):
             error_components.add(component_id)
         else:
             if component_data['enabled']:
-                components_by_status[component_data['configurationStatus']].add(component_id)
+                components_by_status[component_data[config_status_key]].add(component_id)
             else:
                 disabled_components.add(component_id)
 
@@ -83,7 +85,7 @@ def wait_for_component_configuration(cfs_client, wait_component_ids, check_inter
     and reached either "configured" or "failed" states.
 
     Args:
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
         wait_component_ids (Iterable): the component IDs to wait on
         check_interval (int): the number of seconds to wait between checks on
             component state

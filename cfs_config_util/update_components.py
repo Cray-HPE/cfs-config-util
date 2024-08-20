@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2023-2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -34,9 +34,7 @@ from cfs_config_util.errors import CFSConfigUtilError
 from cfs_config_util.hsm import get_node_ids
 from cfs_config_util.wait import wait_for_component_configuration
 
-from csm_api_client.service.cfs import (
-    CFSClient
-)
+from csm_api_client.service.cfs import CFSClientBase
 from csm_api_client.service.gateway import APIError
 from csm_api_client.service.hsm import HSMClient
 from csm_api_client.session import AdminSession
@@ -49,7 +47,7 @@ def update_cfs_components(cfs_client, component_ids, desired_config=None, clear_
     """Assign the CFSConfiguration to the given CFS components.
 
     Args:
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
         component_ids (Iterable): the list of component ids (xnames) to update
         desired_config (str, Optional): the name of the desired config to set
             on the components, if any
@@ -89,7 +87,7 @@ def do_update_components(args):
     """
     session = AdminSession(API_GW_HOST, API_CERT_VERIFY)
     hsm_client = HSMClient(session)
-    cfs_client = CFSClient(session)
+    cfs_client = CFSClientBase.get_cfs_client(session, args.cfs_version)
 
     component_ids = get_node_ids(hsm_client, component_ids=args.xnames,
                                  hsm_query=args.query)
