@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2022-2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2022-2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -349,7 +349,10 @@ class TestCreatePassthroughParser(unittest.TestCase):
         self.mock_argument_parser_cls.assert_called_once_with(add_help=False,
                                                               usage=argparse.SUPPRESS,
                                                               allow_abbrev=False)
-        self.mock_argument_parser.add_argument_group.assert_called_once_with(
+
+        self.assertEqual(self.mock_argument_parser.add_argument_group.call_count, 2)
+        self.mock_argument_parser.add_argument_group.assert_any_call('Global Options')
+        self.mock_argument_parser.add_argument_group.assert_any_call(
             title='Git Options', description='Options that control the git ref used in the layer.'
         )
         self.mock_add_git_options.assert_called_once_with(

@@ -32,6 +32,8 @@ import logging
 from csm_api_client.service.cfs import (
     CFSClientBase,
     CFSConfigurationError,
+    CFSV2ConfigurationLayer,
+    CFSV3ConfigurationLayer,
     CFSConfigurationLayer
 )
 from csm_api_client.service.gateway import APIError
@@ -329,6 +331,14 @@ def do_update_configs(args):
     Args:
         args (argparse.Namespace): the parsed command-line arguments
     """
+
+    global CFSConfigurationLayer
+    cfs_version = args.cfs_version
+    if cfs_version == 'v3':
+        CFSConfigurationLayer = CFSV3ConfigurationLayer
+    else:  # Default to v2 if version is not recognized
+        CFSConfigurationLayer = CFSV2ConfigurationLayer
+
     session = AdminSession(API_GW_HOST, API_CERT_VERIFY)
     hsm_client = HSMClient(session)
     cfs_client = CFSClientBase.get_cfs_client(session, args.cfs_version)

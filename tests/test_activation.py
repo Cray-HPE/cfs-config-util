@@ -63,7 +63,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.PRESENT, self.hsm_query_params,
-            None, None
+            None, None, 'v3'
         )
 
     def test_cfs_activate_version_git_commit(self):
@@ -73,7 +73,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.PRESENT, self.hsm_query_params,
-            self.git_commit, None
+            self.git_commit, None, 'v3'
         )
 
     def test_cfs_activate_version_git_branch(self):
@@ -83,7 +83,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.PRESENT, self.hsm_query_params,
-            None, self.git_branch
+            None, self.git_branch, 'v3'
         )
 
     def test_cfs_deactivate_version_no_git_ref(self):
@@ -92,7 +92,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.ABSENT, self.hsm_query_params,
-            None, None
+            None, None, 'v3'
         )
 
     def test_cfs_deactivate_version_git_commit(self):
@@ -102,7 +102,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.ABSENT, self.hsm_query_params,
-            self.git_commit, None
+            self.git_commit, None, 'v3'
         )
 
     def test_cfs_deactivate_version_git_branch(self):
@@ -112,7 +112,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.ABSENT, self.hsm_query_params,
-            None, self.git_branch
+            None, self.git_branch, 'v3'
         )
 
 

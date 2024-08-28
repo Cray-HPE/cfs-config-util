@@ -59,21 +59,6 @@ def configure_logging(verbose=False):
     logger.setLevel(level)
 
 
-def log_args_and_exit(args):
-    from enum import Enum
-    import json
-
-    # Make the args.state value JSON serializable
-    class CustomEncoder(json.JSONEncoder):
-        def default(self, o):
-            if isinstance(o, Enum):
-                return o.value
-            return super().default(o)
-
-    LOGGER.debug(json.dumps(vars(args), cls=CustomEncoder, indent=4))
-    raise SystemExit(0)
-
-
 def main():
     """Modify a CFS configuration and save it as specified by the command-line args.
 
@@ -86,7 +71,6 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
     configure_logging(verbose=args.verbose)
-    log_args_and_exit(args)
 
     try:
         check_args(args)
