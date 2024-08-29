@@ -1,2 +1,2 @@
-cray-product-catalog >= 1.6.0
-csm-api-client >= 1.2, < 2.0
+cray-product-catalog >= 2.3.1
+csm-api-client >= 2.1.0
