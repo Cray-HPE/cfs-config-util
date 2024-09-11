@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -30,9 +30,10 @@ import json
 import logging
 
 from csm_api_client.service.cfs import (
-    CFSClient,
-    CFSConfiguration,
+    CFSClientBase,
     CFSConfigurationError,
+    CFSV2ConfigurationLayer,
+    CFSV3ConfigurationLayer,
     CFSConfigurationLayer
 )
 from csm_api_client.service.gateway import APIError
@@ -61,11 +62,11 @@ def get_cfs_configurations(args, cfs_client, hsm_client):
 
     Args:
         args (argparse.Namespace): the parsed command-line args
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
         hsm_client (cfs_config_util.apiclient.HSMClient): the HSM API client
 
     Returns:
-        list of csm_api_client.service.cfs.CFSConfiguration: the CFS configurations
+        list of csm_api_client.service.cfs.CFSConfigurationBase: the CFS configurations
             from CFS or loaded from a file. If a name of a CFS config or a file
             name is given, the list will have only one element.
 
@@ -74,7 +75,7 @@ def get_cfs_configurations(args, cfs_client, hsm_client):
             API or unable to load it from a file
     """
     if args.base_config is not None:
-        # Get the CFSConfiguration from the CFS API
+        # Get the CFS configuration from the CFS API
         try:
             return [cfs_client.get_configuration(args.base_config)]
         except APIError as err:
@@ -109,11 +110,11 @@ def get_cfs_configurations(args, cfs_client, hsm_client):
         except json.decoder.JSONDecodeError as err:
             raise CFSConfigurationError(f'Failed to parse JSON in file {args.base_file}: {err}')
 
-        return [CFSConfiguration(cfs_client, file_data)]
+        return [cfs_client.configuration_cls(cfs_client, file_data)]
 
 
 def construct_layers(args):
-    """Construct CFSConfigurationLayer(s) which should be added or removed from a CFSConfiguration.
+    """Construct CFSConfigurationLayer(s) which should be added or removed from a CFSConfigurationBase.
 
     Args:
         args (argparse.Namespace): the parsed command-line args
@@ -160,16 +161,16 @@ def construct_layers(args):
 
 
 def save_cfs_configuration(args, cfs_config):
-    """Save the CFSConfiguration to a file or to CFS per the command-line args.
+    """Save the CFSConfigurationBase to a file or to CFS per the command-line args.
 
     Args:
         args (argparse.Namespace): the parsed command-line args
-        cfs_config (csm_api_client.service.cfs.CFSConfiguration): the modified
+        cfs_config (csm_api_client.service.cfs.CFSConfigurationBase): the modified
             CFS configuration to save
 
     Returns:
-        CFSConfiguration or None: if a new CFS configuration was saved to CFS,
-            return the new CFSConfiguration object.
+        CFSConfigurationBase or None: if a new CFS configuration was saved to CFS,
+            return the new CFSConfigurationBase object.
 
     Raises:
         CFSConfigurationError: if unable to save the CFS configuration to CFS
@@ -208,8 +209,8 @@ def get_affected_components(cfs_client, cfs_configs):
     """Get CFS components which have one of the configs as their desiredConfig.
 
     Args:
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
-        cfs_configs (csm_api_client.service.cfs.CFSConfiguration): the CFS
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
+        cfs_configs (csm_api_client.service.cfs.CFSConfigurationBase): the CFS
             configurations to check
 
     Returns:
@@ -234,11 +235,11 @@ def update_configurations(args, cfs_client, hsm_client):
 
     Args:
         args (argparse.Namespace): the parsed command-line arguments
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
         hsm_client (csm_api_client.service.hsm.HSMClient): the HSM API client
 
     Returns:
-        A tuple consisting of the CFSConfiguration objects which have been
+        A tuple consisting of the CFSConfigurationBase objects which have been
         updated and those which did not need to be updated.
     """
     try:
@@ -247,7 +248,7 @@ def update_configurations(args, cfs_client, hsm_client):
         else:
             LOGGER.info('No base configuration given. Starting from empty configuration. '
                         'Existing configurations will not be overwritten.')
-            base_configs = [CFSConfiguration.empty(cfs_client)]
+            base_configs = [cfs_client.configuration_cls.empty(cfs_client)]
 
         layers = construct_layers(args)
 
@@ -297,7 +298,7 @@ def assign_configuration(args, cfs_client, hsm_client, cfs_config_name):
 
     Args:
         args (argparse.Namespace): the parsed command-line arguments
-        cfs_client (csm_api_client.service.cfs.CFSClient): the CFS API client
+        cfs_client (csm_api_client.service.cfs.CFSClientBase): the CFS API client
         hsm_client (csm_api_client.service.hsm.HSMClient): the HSM API client
         cfs_config_name (str): CFS configuration name to assign to components
 
@@ -330,9 +331,17 @@ def do_update_configs(args):
     Args:
         args (argparse.Namespace): the parsed command-line arguments
     """
+
+    global CFSConfigurationLayer
+    cfs_version = args.cfs_version
+    if cfs_version == 'v3':
+        CFSConfigurationLayer = CFSV3ConfigurationLayer
+    else:  # Default to v2 if version is not recognized
+        CFSConfigurationLayer = CFSV2ConfigurationLayer
+
     session = AdminSession(API_GW_HOST, API_CERT_VERIFY)
     hsm_client = HSMClient(session)
-    cfs_client = CFSClient(session)
+    cfs_client = CFSClientBase.get_cfs_client(session, args.cfs_version)
 
     modified_configs, unmodified_configs = update_configurations(args, cfs_client, hsm_client)
 

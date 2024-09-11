@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -106,6 +106,23 @@ def convert_query_to_dict(query_str):
     return dict(params)
 
 
+def add_global_options(parser):
+    """Add global options to the top-level parser.
+
+    Args:
+        parser (argparse.ArgumentParser): the parser to which options are added
+    """
+    global_group = parser.add_argument_group('Global Options')
+    global_group.add_argument(
+        '--verbose', '-v', action='store_true',
+        help='Enable debug logging.'
+    )
+    global_group.add_argument(
+        '--cfs-version', choices=['v2', 'v3'], default='v3',
+        help='The version of the CFS API to use. Defaults to v3.'
+    )
+
+
 def add_git_options(group):
     """Add options which control which git ref is used in a layer.
 
@@ -149,7 +166,7 @@ def add_layer_content_options(parser):
     Returns: None
     """
     repo_group = parser.add_argument_group(
-        title='VCS Repo Options',
+        title='Layer Content Options',
         description='Options that control the content of the layer to be added '
                     'or removed.'
     )
@@ -483,6 +500,7 @@ def create_passthrough_parser():
     """
     parser = argparse.ArgumentParser(add_help=False, usage=argparse.SUPPRESS, allow_abbrev=False)
 
+    add_global_options(parser)
     # Add subset of the options added by add_layer_content_options
     git_group = parser.add_argument_group(
         title='Git Options',
@@ -575,6 +593,7 @@ def create_parser():
     """
     parser = argparse.ArgumentParser(allow_abbrev=False)
 
+    add_global_options(parser)
     subparsers = parser.add_subparsers(metavar='action', dest='action')
     add_update_configs_subparser(subparsers)
     add_update_components_subparser(subparsers)

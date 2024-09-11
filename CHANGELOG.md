@@ -25,7 +25,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# [5.1.0] - 2024-08-29
+# [5.1.0] - 2024-08-20
+
+### Added
+- Added support for CFS v3 API. The CFS API version can be specified with the
+  new `--cfs-version` option, which defaults to `v3`.
+- Added a new `--verbose` command-line option which enables debug logging in
+  `cfs-config-util`.
+
+### Fixed
+- Fixed bug where `additional_inventory` was dropped from CFS configurations
+  when modified by `cfs-config-util`.
+- Fixed bug where `specialParameters.imsRequireDkms` (CFS v2) or
+  `special_parameters.ims_require_dkms` (CFS v3) was dropped from CFS
+  configurations when modified by `cfs-config-util`.
+
+# [5.0.4] - 2024-08-29
 
 ### Changed
 - Update cray-product-catalog to latest version 2.3.1

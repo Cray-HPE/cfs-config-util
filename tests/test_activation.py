@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2022, 2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -63,7 +63,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.PRESENT, self.hsm_query_params,
-            None, None
+            None, None, 'v3'
         )
 
     def test_cfs_activate_version_git_commit(self):
@@ -73,7 +73,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.PRESENT, self.hsm_query_params,
-            self.git_commit, None
+            self.git_commit, None, 'v3'
         )
 
     def test_cfs_activate_version_git_branch(self):
@@ -83,7 +83,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.PRESENT, self.hsm_query_params,
-            None, self.git_branch
+            None, self.git_branch, 'v3'
         )
 
     def test_cfs_deactivate_version_no_git_ref(self):
@@ -92,7 +92,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.ABSENT, self.hsm_query_params,
-            None, None
+            None, None, 'v3'
         )
 
     def test_cfs_deactivate_version_git_commit(self):
@@ -102,7 +102,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.ABSENT, self.hsm_query_params,
-            self.git_commit, None
+            self.git_commit, None, 'v3'
         )
 
     def test_cfs_deactivate_version_git_branch(self):
@@ -112,7 +112,7 @@ class TestActivateDeactivate(unittest.TestCase):
         self.assertEqual(self.mock_ensure_product_layer.return_value, ret_val)
         self.mock_ensure_product_layer.assert_called_once_with(
             self.product, self.version, self.playbook, LayerState.ABSENT, self.hsm_query_params,
-            None, self.git_branch
+            None, self.git_branch, 'v3'
         )
 
 
@@ -132,7 +132,7 @@ class TestEnsureProductLayer(unittest.TestCase):
         self.mock_cfs_config_layer = self.mock_cfs_config_layer_cls.from_product_catalog.return_value
         self.mock_admin_session = patch('cfs_config_util.activation.AdminSession').start()
         self.mock_hsm_client = patch('cfs_config_util.activation.HSMClient').start().return_value
-        self.mock_cfs_client = patch('cfs_config_util.activation.CFSClient').start().return_value
+        self.mock_cfs_client = patch('cfs_config_util.activation.CFSClientBase.get_cfs_client').start().return_value
 
         self.mock_cfs_config_names = ['ncn-personalization', 'ncn-personalization-storage']
         self.mock_cfs_configs = []

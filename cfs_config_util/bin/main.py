@@ -1,7 +1,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2021-2023 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2021-2024 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@ from cfs_config_util.parser import (
     CANONICAL_UPDATE_CONFIGS_ACTION,
     CANONICAL_UPDATE_COMPONENTS_ACTION,
     check_args,
-    create_parser,
+    create_parser
 )
 from cfs_config_util.update_components import do_update_components
 from cfs_config_util.update_configs import do_update_configs
@@ -39,7 +39,7 @@ from cfs_config_util.update_configs import do_update_configs
 LOGGER = logging.getLogger(__name__)
 
 
-def configure_logging():
+def configure_logging(verbose=False):
     """Configure logging for the cfs-config-util executable.
 
     This sets up the root logger with the default format, INFO log level, and
@@ -48,14 +48,15 @@ def configure_logging():
     Returns:
         None.
     """
+    level = logging.DEBUG if verbose else logging.INFO
     console_log_format = '%(levelname)s: %(message)s'
     logger = logging.getLogger()
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(level)
     console_formatter = logging.Formatter(console_log_format)
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
 
 def main():
@@ -67,10 +68,10 @@ def main():
     Raises:
         SystemExit: if there is a failure to get the base config, modify it, or save it
     """
-    configure_logging()
-
     parser = create_parser()
     args = parser.parse_args()
+    configure_logging(verbose=args.verbose)
+
     try:
         check_args(args)
     except ValueError as err:
