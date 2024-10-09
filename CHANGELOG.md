@@ -46,8 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `special_parameters.ims_require_dkms` (CFS v3) was dropped from CFS
   configurations when modified by `cfs-config-util`.
 
-## [5.0.4] - 2024-08-29
-
 ### Changed
 - Update cray-product-catalog to latest version 2.3.1
 - Update csm-api-client to latest version 2.1.0
