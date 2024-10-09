@@ -25,6 +25,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.4] - 2024-10-09
+
+### Changed
+- Updated unit tests to run with `nose2` instead of `nose`, which is broken
+  for Python 3.10 and newer.
+
 ## [5.0.3] - 2024-07-09
 
 ### Security
