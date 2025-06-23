@@ -23,7 +23,7 @@
 #
 # Dockerfile for cfs-config-util
 
-FROM artifactory.algol60.net/csm-docker/stable/docker.io/library/alpine:3.15
+FROM artifactory.algol60.net/csm-docker/stable/docker.io/library/alpine:3.16
 
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
