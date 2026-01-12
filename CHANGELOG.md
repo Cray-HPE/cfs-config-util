@@ -1,6 +1,6 @@
 # Changelog
 
-(C) Copyright 2021-2025 Hewlett Packard Enterprise Development LP
+(C) Copyright 2021-2026 Hewlett Packard Enterprise Development LP
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [5.1.5] - 2026-01-09
+
+### Security
+- Update urllib3 from 2.6.0 to 2.6.3 to address CVE-2026-21441
 
 ## [5.1.4] - 2025-12-09
 
