@@ -15,7 +15,7 @@ jsonschema==4.16.0
 kubernetes==23.6.0
 nose2==0.15.1
 oauthlib==3.2.2
-pyasn1==0.4.8
+pyasn1==0.6.3
 pyasn1-modules==0.2.8
 pycodestyle==2.8.0
 pydantic==1.10.13
